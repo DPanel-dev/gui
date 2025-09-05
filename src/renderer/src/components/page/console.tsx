@@ -104,7 +104,7 @@ export default function ConsolePage() {
         <div className='prose w-60 mr-auto'>
           <h3 className='pl-5'>
             控制台
-            <div className="badge badge-xs badge-info text-info-content ml-2">{status}</div>
+            <div className="badge badge-sm badge-soft badge-primary ml-2">{status}</div>
           </h3>
         </div>
         <div className="join gap-0 mr-4  items-center">
