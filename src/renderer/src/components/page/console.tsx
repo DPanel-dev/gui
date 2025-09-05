@@ -23,6 +23,8 @@ const TtyDefaultOption: ITerminalOptions = {
 
 let terminal: Terminal
 let fitAddon: FitAddon
+let init = false
+
 export default function ConsolePage() {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -39,10 +41,18 @@ export default function ConsolePage() {
     terminal.loadAddon(fitAddon)
     terminal.open(container)
 
-    window.bridgeAPI.onProcessLog((data: string) => {
-      console.log(data);
+    window.api.onProcessLog((data: string) => {
       terminal.write(String(data))
     })
+
+    window.api.onProcessError((data: string) => {
+      terminal.write(String(data))
+    })
+
+    if (!init) {
+      runDPanel()
+      init = true
+    }
   }, [])
 
   useEffect(() => {
@@ -56,17 +66,24 @@ export default function ConsolePage() {
   }
 
   async function runDPanel() {
+    console.log(terminal);
+
+    terminal.clear()
+
     let commandName = ""
-    const platform = await window.bridgeAPI.getPlatform()
+    const platform = await window.api.getPlatform()
     if (platform == "win32") {
       commandName = "dpanel.exe"
     } else {
-      commandName = "dpanel"
+      commandName = "./dpanel"
     }
-    window.bridgeAPI.startProcess({
+    console.log("asdfasdf");
+
+    window.api.startProcess({
+      name: "dpanel",
       command: commandName,
       args: [
-        "server:start", "-f", "config.yaml"
+        "server:start"
       ]
     });
   }
@@ -103,10 +120,10 @@ export default function ConsolePage() {
           </div>
         </div>
       </div>
-      <div className="p-5 flex-1 overflow-hidden">
+      <div className="p-5 pt-0 flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className='border h-full'
+          className='h-full'
         ></div>
       </div>
     </div>

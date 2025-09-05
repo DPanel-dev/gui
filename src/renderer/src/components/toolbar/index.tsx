@@ -19,7 +19,7 @@ export default function Toolbar() {
             role="button"
             className="btn btn-circle btn-ghost btn-sm p-2 mr-2 hover:bg-blue-900 border-none "
             onClick={async () => {
-                await window.bridgeAPI.openUrl({
+                window.api.openUrl({
                     url: "http://127.0.0.1:8086"
                 })
             }}
@@ -36,9 +36,8 @@ export default function Toolbar() {
             </ul>
         </div>
         <label className="swap swap-rotate btn btn-circle btn-ghost btn-sm p-2 hover:bg-blue-900 border-none">
-            <input type="checkbox" className="theme-controller" onClick={(e) => {
+            <input type="checkbox" className="theme-controller" onClick={() => {
                 setTheme((prev) => {
-                    console.log(prev);
                     return prev == lightThemeName ? darkThemeName : lightThemeName
                 })
             }} />

@@ -4,8 +4,10 @@ import Toolbar from '../toolbar'
 export default function Title() {
   const [platform, setPlatform] = useState("windows")
   useEffect(() => {
-    if (window.bridgeAPI) {
-      window.bridgeAPI.getPlatform().then(res => {
+    if (window.api) {
+      window.api.getPlatform().then(res => {
+        console.log(res);
+
         setPlatform(res)
       })
     }

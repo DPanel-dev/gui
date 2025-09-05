@@ -2,7 +2,7 @@
 @import '@xterm/xterm/css/xterm.css';
 
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark, corporate;
+  themes: light --default, dark --prefersdark;
 }
 
 @plugin "@tailwindcss/typography";
