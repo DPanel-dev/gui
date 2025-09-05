@@ -1,3 +1,4 @@
+import { ChildProcess } from "child_process";
 import { dialog, IpcMainEvent } from "electron";
 
 export function debug(...message: any[]) {
@@ -16,3 +17,16 @@ export function eventReply(event:IpcMainEvent, name: string, message: string) {
   event.reply(name, `${message}`);
   debug(name, message)
 }
+
+export function getProcessStatus(child?:ChildProcess):string {
+    if (!child || !child.pid) {
+      return 'stop'
+    }
+    if (child.exitCode !== null) {
+      return 'exited'
+    }
+    if (child.killed) {
+      return 'killed'
+    }
+    return 'running'
+  }

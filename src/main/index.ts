@@ -2,10 +2,11 @@ import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { ChildProcess, spawn } from 'child_process'
+import { spawn } from 'child_process'
 import fs from "fs"
-import { debug, eventReply, showDialogError } from './utils'
-import { EVENT_OPEN_URL, OpenUrlParams, PROCESS_EVENT_ERROR, PROCESS_EVENT_FETCH, PROCESS_EVENT_LOG, PROCESS_EVENT_START, ProcessResult, ProcessRunParams } from './types'
+import { debug, eventReply, getProcessStatus, showDialogError } from './utils'
+import { EVENT_OPEN_URL, OpenUrlParams, PROCESS_EVENT_ERROR, PROCESS_EVENT_STATUS, PROCESS_EVENT_LOG, PROCESS_EVENT_START, ProcessResult, ProcessRunParams, PROCESS_EVENT_STOP } from './types'
+import * as dotenv from 'dotenv'
 
 function createWindow(): void {
   // Create the browser window.
@@ -49,6 +50,7 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    mainWindow.webContents.openDevTools()
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -77,10 +79,6 @@ app.whenReady().then(() => {
     return process.platform
   })
 
-  ipcMain.handle(PROCESS_EVENT_FETCH, (evnet, name: string) => {
-    return runProcess.find(item => item.name == name)
-  })
-
   ipcMain.on(EVENT_OPEN_URL, async (event, params: OpenUrlParams) => {
     eventReply(event, "openUrl", params.url)
     shell.openExternal(params.url)
@@ -90,20 +88,24 @@ app.whenReady().then(() => {
   ipcMain.on(PROCESS_EVENT_START, async (event: Electron.IpcMainEvent, params: ProcessRunParams) => {
     let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == params.name)
     if (myProcess) {
+      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
       return;
     }
-
     const workDir = path.join(__dirname, "../", "runtime")
+    let defaultEnv = {
+      "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
+      "PATH": `${process.env.PATH}${path.delimiter}${workDir}`
+    }
+    const envPath = path.join(workDir, '.env')
+    if (fs.existsSync(envPath)) {
+      defaultEnv = {...defaultEnv, ...dotenv.parse(fs.readFileSync(envPath))}
+    }
     const options = {
       cwd: workDir,
-      env: {...process.env, ...{
-        "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
-      }},
+      env: {...process.env, ...defaultEnv},
       detached: false
     }
-
     debug(PROCESS_EVENT_START, params, options);
-
     try {
       await new Promise<boolean>((resolve, reject) => {
         fs.access(path.join(workDir, params.command), fs.constants.X_OK, (err) => {
@@ -135,12 +137,17 @@ app.whenReady().then(() => {
         runProcess = runProcess.filter(item => item.pid != childProcess.pid)
         const message = `Process Exit Code: ${code}, Pid: ${childProcess.pid}, RunProcess: ${runProcess.length}`
         eventReply(event, PROCESS_EVENT_ERROR, message)
+        eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
       });
+
       childProcess.on('error', (err) => {
         runProcess = runProcess.filter(item => item.pid != childProcess.pid)
         const message = `Process Error Message: ${err.message}`
         eventReply(event, PROCESS_EVENT_ERROR, message)
+        eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
       });
+
+      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
 
       runProcess.push({
         name: params.name,
@@ -154,7 +161,23 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.on(PROCESS_EVENT_STOP, async (event: Electron.IpcMainEvent, params: ProcessRunParams) => {
+    let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == params.name)
+    if (!myProcess) {
+      eventReply(event, PROCESS_EVENT_STATUS, "exited")
+      return;
+    }
+    try {
+      myProcess.process?.kill()
+      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
+    } catch(e) {
+      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
+    }
+  });
+
   app.on('before-quit', () => {
+    console.log("before-quit");
+    
     runProcess.forEach(item => {
       if (item && item.process && !item.process.killed) {
         try {

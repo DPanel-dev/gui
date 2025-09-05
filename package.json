@@ -25,6 +25,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@tailwindcss/vite": "^4.1.13",
     "@xterm/addon-fit": "^0.10.0",
+    "dotenv": "^17.2.2",
     "react-router": "^7.8.2",
     "tailwindcss": "^4.1.13"
   },

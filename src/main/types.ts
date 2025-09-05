@@ -3,7 +3,8 @@ import { ChildProcess } from "child_process"
 export const PROCESS_EVENT_ERROR = "process-error"
 export const PROCESS_EVENT_LOG = "process-log"
 export const PROCESS_EVENT_START = "process-start"
-export const PROCESS_EVENT_FETCH = "process-fetch"
+export const PROCESS_EVENT_STOP = "process-stop"
+export const PROCESS_EVENT_STATUS = "process-status" 
 
 export const EVENT_OPEN_URL = "open-url"
 
