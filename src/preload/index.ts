@@ -1,28 +1,47 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { EVENT_OPEN_URL, EventCallback, OpenUrlParams, PROCESS_EVENT_ERROR, PROCESS_EVENT_STATUS, PROCESS_EVENT_LOG, PROCESS_EVENT_START, ProcessRunParams, PROCESS_EVENT_STOP } from '../main/types';
+import { EVENT_OPEN_URL, EventCallback, OpenUrlParams,
+   PROCESS_EVENT_START, ProcessRunParams, 
+   PROCESS_EVENT_STOP, EVENT_COPY_TO_CLIPBOARD, EVENT_RUN_CONFIG_LOAD, 
+   EVENT_RUN_CONFIG_SAVE, PROCESS_EVENT_RESTART, 
+   PROCESS_EVENT_LOAD,
+   PROCESS_EVENT_MESSAGE} from '../main/types';
 
 // Custom APIs for renderer
 const api = {
   getPlatform: () => {
     return ipcRenderer.invoke("getPlatform")
   },
-  startProcess: (params: ProcessRunParams) => ipcRenderer.send(PROCESS_EVENT_START, params),
-  stopProcess: (params: ProcessRunParams) => ipcRenderer.send(PROCESS_EVENT_STOP, params),
-  onProcessError: (callback: EventCallback) => {
-    ipcRenderer.removeAllListeners(PROCESS_EVENT_ERROR);
-    ipcRenderer.on(PROCESS_EVENT_ERROR, (event, data) => callback(data));
-  },
-  onProcessLog: (callback: EventCallback) => {
-    ipcRenderer.removeAllListeners(PROCESS_EVENT_LOG);
-    ipcRenderer.on(PROCESS_EVENT_LOG, (event, data) => callback(data));
-  },
-  onProcessStatus:(callback: EventCallback) => {
-    ipcRenderer.removeAllListeners(PROCESS_EVENT_STATUS);
-    ipcRenderer.on(PROCESS_EVENT_STATUS, (event, data) => callback(data));
+  copyToClipboard: (text:string) => {
+    return ipcRenderer.invoke(EVENT_COPY_TO_CLIPBOARD, text)
   },
   openUrl: (params: OpenUrlParams) => {
     ipcRenderer.send(EVENT_OPEN_URL, params)
+  },
+
+  processCtrl: (params: ProcessRunParams) => {
+    switch (params.ctrl) {
+      case "start":
+        return ipcRenderer.send(PROCESS_EVENT_START, params)
+      case "stop":
+        return ipcRenderer.send(PROCESS_EVENT_STOP, params)
+      case "restart":
+        return ipcRenderer.send(PROCESS_EVENT_RESTART, params)
+    }
+  },
+  processLoad: (name:string) => {
+    return ipcRenderer.invoke(PROCESS_EVENT_LOAD, name)
+  },
+  onProcessMessage: (callback: EventCallback) => {
+    ipcRenderer.removeAllListeners(PROCESS_EVENT_MESSAGE);
+    ipcRenderer.on(PROCESS_EVENT_MESSAGE, (event, status, log) => callback(status, log));
+  },
+
+  runConfigLoad: () => {
+    return ipcRenderer.invoke(EVENT_RUN_CONFIG_LOAD);
+  },
+  runConfigSave: (params:any) => {
+    return ipcRenderer.invoke(EVENT_RUN_CONFIG_SAVE, params)
   }
 }
 

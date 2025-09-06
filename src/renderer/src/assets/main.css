@@ -2,11 +2,15 @@
 @import '@xterm/xterm/css/xterm.css';
 
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: all;
 }
 
 @plugin "@tailwindcss/typography";
 
 .drag {
   app-region: drag;
+}
+
+.xterm .xterm-viewport {
+  scrollbar-color: var(--color-base-300) rgb(0, 0, 0);
 }

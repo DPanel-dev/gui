@@ -3,6 +3,10 @@ import { ITerminalOptions, Terminal } from '@xterm/xterm'
 import React, { useEffect, useRef, useState } from 'react'
 import IconReload from '@renderer/assets/reload.svg'
 import IconPause from '@renderer/assets/pause.svg'
+import IconSend from '@renderer/assets/send.svg'
+import IconStart from '@renderer/assets/start.svg'
+import { SearchAddon } from '@xterm/addon-search'
+import { ConfigResult } from './setting'
 
 const TtyDefaultOption: ITerminalOptions = {
   convertEol: true,
@@ -26,7 +30,7 @@ export default function ConsolePage() {
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [status, setStatus] = useState<string>()
-  const [running, setRunning] = useState(true)
+  const [port, setPort] = useState(8086)
 
   useEffect(() => {
     const container = containerRef.current
@@ -40,19 +44,41 @@ export default function ConsolePage() {
 
     const fitAddon = new FitAddon()
     const terminal = new Terminal(TtyDefaultOption)
+    const searchAddon = new SearchAddon();
+
     terminal.loadAddon(fitAddon)
+    terminal.loadAddon(searchAddon)
     terminal.open(container)
 
-    window.api && window.api.onProcessLog((data: string) => {
-      terminal.write(String(data))
+    terminal.attachCustomKeyEventHandler((event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+        const selection = terminal.getSelection();
+        if (selection) {
+          window.api && window.api.copyToClipboard(selection)
+        }
+      }
+      return true;
     })
 
-    window.api && window.api.onProcessError((data: string) => {
-      terminal.write(String(data))
+    window.api && window.api.runConfigLoad().then(res => {
+      const data = JSON.parse(res) as ConfigResult
+      if (data && data.env && data.env.APP_SERVER_PORT) {
+        setPort(data.env.APP_SERVER_PORT)
+      }
     })
 
-    window.api && window.api.onProcessStatus((data: string) => {
-      setStatus(String(data.trim()))
+    window.api && window.api.onProcessMessage((status, log) => {
+      if (log) {
+        terminal.write(log)
+      }
+      if (status) {
+        setStatus(String(status.trim()))
+      }
+    })
+
+    window.api && window.api.processLoad("dpanel").then(res => {
+      setStatus(String(res.status.trim()))
+      terminal.write(res.log)
     })
 
     terminalRef.current = terminal
@@ -68,9 +94,6 @@ export default function ConsolePage() {
     resize()
   }, [terminalRef.current])
 
-  useEffect(() => {
-    setRunning(status == "running")
-  }, [status])
 
   function resize() {
     if (fitAddonRef.current) {
@@ -88,12 +111,13 @@ export default function ConsolePage() {
       commandName = "./dpanel"
     }
 
-    window.api.startProcess({
+    window.api.processCtrl({
       name: "dpanel",
       command: commandName,
       args: [
         "server:start"
-      ]
+      ],
+      ctrl: "start"
     });
   }
 
@@ -108,26 +132,35 @@ export default function ConsolePage() {
           </h3>
         </div>
         <div className="join gap-0 mr-4  items-center">
-          <label className="input">
-            端口:
-            <input type="text" className="grow" defaultValue={"8807"} />
-          </label>
-          <button disabled={running} className="btn join-item rounded-r-xl btn-primary" onClick={() => {
-            console.log(status == "running");
-
-            runDPanel()
-          }}>启动</button>
+          <button disabled={status != "running"} className="btn rounded-xl btn-primary mr-4 fill-primary-content" onClick={async () => {
+            window.api.openUrl({
+              url: `http://127.0.0.1:${port}`
+            })
+          }}>
+            <IconSend className='w-4' />
+            主界面
+          </button>
         </div>
         <div className='gap-4 flex'>
-          <button className="btn rounded-xl btn-info text-base-content fill-base-content">
+          <button disabled={status == "running"} className="btn join-item rounded-xl btn-success text-success-content fill-success-content" onClick={() => {
+            runDPanel()
+          }}>
+            <IconStart className='w-4' />
+            启动
+          </button>
+          <button className="btn rounded-xl btn-warning text-warning-content fill-warning-content" onClick={() => {
+            window.api.processCtrl({
+              name: "dpanel",
+              ctrl: "restart",
+            });
+          }}>
             <IconReload className='w-4' />
             重启
           </button>
-          <button disabled={!running} className={`btn rounded-xl btn-error text-base-content fill-base-content`} onClick={() => {
-            console.log(running);
-
-            window.api.stopProcess({
+          <button disabled={status != "running"} className={`btn rounded-xl btn-error  text-error-content fill-error-content`} onClick={() => {
+            window.api.processCtrl({
               name: "dpanel",
+              ctrl: "stop",
             });
           }}>
             <IconPause className='w-4' />

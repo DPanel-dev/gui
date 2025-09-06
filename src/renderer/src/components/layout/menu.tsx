@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import IconConsole from '@renderer/assets/console.svg'
+import IconSetting from '@renderer/assets/setting.svg'
 import { Link, useLocation } from 'react-router'
 
 export default function Menu() {
@@ -20,11 +21,11 @@ export default function Menu() {
           <IconConsole />
         </Link>
       </li>
-      {/* <li>
+      <li>
         <Link to={"/setting"} className={`p-4 ${isActive("/setting") ? "fill-base-content" : "fill-base-content/50"}`}>
           <IconSetting />
         </Link>
-      </li> */}
+      </li>
     </ul>
   </div>
 }

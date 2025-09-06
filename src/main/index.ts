@@ -1,12 +1,35 @@
-import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, screen, clipboard, Tray, Menu, dialog } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { spawn } from 'child_process'
 import fs from "fs"
-import { debug, eventReply, getProcessStatus, showDialogError } from './utils'
-import { EVENT_OPEN_URL, OpenUrlParams, PROCESS_EVENT_ERROR, PROCESS_EVENT_STATUS, PROCESS_EVENT_LOG, PROCESS_EVENT_START, ProcessResult, ProcessRunParams, PROCESS_EVENT_STOP } from './types'
-import * as dotenv from 'dotenv'
+import { debug, eventReply, eventReplyHistory, getFreePort, getProcessStatus, showDialogError } from './utils'
+import { EVENT_OPEN_URL, OpenUrlParams, 
+  PROCESS_EVENT_START, ProcessResult, ProcessRunParams, 
+  PROCESS_EVENT_STOP, EVENT_COPY_TO_CLIPBOARD, EVENT_RUN_CONFIG_LOAD, 
+  EVENT_RUN_CONFIG_SAVE,
+  PROCESS_EVENT_LOAD,
+  ProcessMessageResult,
+  PROCESS_EVENT_MESSAGE,
+  PROCESS_STATUS_EXITED,
+  PROCESS_STATUS_RUNNING,
+} from './types'
+
+
+const workDir = path.join(__dirname, "../", "runtime")
+const runConfigPath = path.join(workDir, 'config.json')
+let runConfig = {
+  theme: 'light',
+  autoLaunch: false,
+  closeWindowHide:true,
+  autoOpenAppServerUrl:false,
+  env:{
+    "APP_SERVER_PORT":0,
+    "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
+  }
+}
+let runProcess: ProcessResult[] = []
 
 function createWindow(): void {
   // Create the browser window.
@@ -35,9 +58,12 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  mainWindow.on("close", (event) => {
+    event.preventDefault();
+    mainWindow.hide();
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    console.log(details);
-    
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -55,13 +81,67 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  const appTray = new Tray(icon);
+  const contextMenu = Menu.buildFromTemplate([
+    { label: '界面', click: () => mainWindow.show() },
+    { label: '退出', role: 'quit' } ,
+    { type: 'separator' },
+    {
+      label: '关于', click:() => {
+        shell.openExternal("https://dpanel.cc")
+      } 
+    },
+  ]);
+
+  appTray.setToolTip('DPanel Desktop');
+  appTray.setContextMenu(contextMenu);
+
+  appTray.on('click', () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 }
 
-let runProcess: ProcessResult[] = []
+async function initConfig() {
+  if (!fs.existsSync(runConfigPath)) {
+    try {
+      const idlePort = await getFreePort()
+      runConfig.env.APP_SERVER_PORT = idlePort
+
+      await fs.promises.writeFile(
+        runConfigPath,
+        JSON.stringify(runConfig, null, 2),
+        'utf-8'
+      )
+    } catch (err) {
+      dialog.showErrorBox("DPanel Message", "配置初始化失败, " + err)
+      app.exit()
+    }
+  } else {
+    try {
+      const data = await fs.promises.readFile(runConfigPath, 'utf-8')
+      runConfig = JSON.parse(data)
+    } catch (err) {
+      dialog.showErrorBox("DPanel Message", "配置文件读取失败：" + err)
+      app.exit()
+      return
+    }
+  }
+  if (!fs.existsSync(runConfig.env.STORAGE_LOCAL_PATH)) {
+    await fs.promises.mkdir(runConfig.env.STORAGE_LOCAL_PATH, { recursive: true });
+  }
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
   
@@ -85,20 +165,62 @@ app.whenReady().then(() => {
     return 
   })
 
+  ipcMain.handle(EVENT_COPY_TO_CLIPBOARD, (event, text:string) => {
+    return clipboard.writeText(text);
+  })
+
+  ipcMain.handle(EVENT_RUN_CONFIG_LOAD, () => {
+    return JSON.stringify(runConfig)
+  })
+
+  ipcMain.handle(EVENT_RUN_CONFIG_SAVE, async (event, params) => {
+    const result = {...params, ...{env: {
+      ...params.env || {},
+      "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
+    }}}
+    await fs.promises.writeFile(
+      runConfigPath,
+      JSON.stringify(result, null, 2),
+      'utf-8'
+    )
+    runConfig = result
+    return runConfig
+  })
+
+  ipcMain.handle(PROCESS_EVENT_LOAD, (event, name): ProcessMessageResult => {
+    let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == name)
+    const history = eventReplyHistory().map(item => {
+      return item[1]
+    }).join("")
+    if (myProcess) {
+      return {
+        log: history,
+        status: getProcessStatus(myProcess.process)
+      }
+    }  else {
+      return {
+        log: history,
+        status: "exited"
+      }
+    }
+  })
+
   ipcMain.on(PROCESS_EVENT_START, async (event: Electron.IpcMainEvent, params: ProcessRunParams) => {
     let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == params.name)
     if (myProcess) {
-      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
+      eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(myProcess.process))
       return;
     }
-    const workDir = path.join(__dirname, "../", "runtime")
     let defaultEnv = {
-      "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
       "PATH": `${process.env.PATH}${path.delimiter}${workDir}`
     }
-    const envPath = path.join(workDir, '.env')
-    if (fs.existsSync(envPath)) {
-      defaultEnv = {...defaultEnv, ...dotenv.parse(fs.readFileSync(envPath))}
+    console.log("runConfig", runConfig);
+    
+    if (runConfig && runConfig.env) {
+      defaultEnv = {
+        ...defaultEnv,
+        ...runConfig.env,
+      }
     }
     const options = {
       cwd: workDir,
@@ -118,7 +240,7 @@ app.whenReady().then(() => {
       })
     } catch (e) {
       showDialogError(String(e))
-      eventReply(event, PROCESS_EVENT_ERROR, String(e))
+      eventReply(event, PROCESS_EVENT_MESSAGE, PROCESS_STATUS_EXITED, String(e) + "\n")
       return
     }
 
@@ -126,28 +248,26 @@ app.whenReady().then(() => {
       const childProcess = spawn(params.command, params.args, options);
 
       childProcess.stdout && childProcess.stdout.on('data', (data) => {
-        eventReply(event, PROCESS_EVENT_LOG, data.toString())
+        eventReply(event, PROCESS_EVENT_MESSAGE, PROCESS_STATUS_RUNNING, data.toString())
       });
 
       childProcess.stderr && childProcess.stderr.on('data', (data) => {
-        eventReply(event, PROCESS_EVENT_LOG, data.toString())
+        eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(childProcess), data.toString())
       });
 
       childProcess.on('close', (code) => {
         runProcess = runProcess.filter(item => item.pid != childProcess.pid)
         const message = `Process Exit Code: ${code}, Pid: ${childProcess.pid}, RunProcess: ${runProcess.length}`
-        eventReply(event, PROCESS_EVENT_ERROR, message)
-        eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
+        eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(childProcess), message)
       });
 
       childProcess.on('error', (err) => {
         runProcess = runProcess.filter(item => item.pid != childProcess.pid)
         const message = `Process Error Message: ${err.message}`
-        eventReply(event, PROCESS_EVENT_ERROR, message)
-        eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
+        eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(childProcess), message)
       });
 
-      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(childProcess))
+      eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(childProcess))
 
       runProcess.push({
         name: params.name,
@@ -157,27 +277,26 @@ app.whenReady().then(() => {
 
     } catch (err) {
       const message = `Process Exit Message: ${err}`
-      eventReply(event, PROCESS_EVENT_ERROR, message)
+      eventReply(event, PROCESS_EVENT_MESSAGE, PROCESS_STATUS_EXITED, message)
     }
   });
 
   ipcMain.on(PROCESS_EVENT_STOP, async (event: Electron.IpcMainEvent, params: ProcessRunParams) => {
     let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == params.name)
     if (!myProcess) {
-      eventReply(event, PROCESS_EVENT_STATUS, "exited")
+      eventReply(event, PROCESS_EVENT_MESSAGE, PROCESS_STATUS_EXITED)
       return;
     }
     try {
       myProcess.process?.kill()
-      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
+      eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(myProcess.process))
     } catch(e) {
-      eventReply(event, PROCESS_EVENT_STATUS, getProcessStatus(myProcess.process))
+      eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(myProcess.process), String(e))
     }
   });
 
   app.on('before-quit', () => {
-    console.log("before-quit");
-    
+
     runProcess.forEach(item => {
       if (item && item.process && !item.process.killed) {
         try {
@@ -187,8 +306,12 @@ app.whenReady().then(() => {
         }
       }
     })
-  })
 
+    app.exit()
+  });
+
+  await initConfig()
+  
   createWindow()
 
   app.on('activate', function () {

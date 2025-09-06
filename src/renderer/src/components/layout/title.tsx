@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Toolbar from '../toolbar'
+import logo from '../../../../../resources/logo.png?asset'
 
 export default function Title() {
   const [platform, setPlatform] = useState("windows")
@@ -13,8 +14,8 @@ export default function Title() {
     }
   }, [])
   return <div className="titlebar bg-primary text-primary-content flex items-center h-full flex-auto flex-shrink-0">
-    <div className={`drag w-20 ${platform == "win32" ? "ml-15" : "ml-28"}`}>
-      asdfasdf
+    <div className={`drag flex ${platform == "win32" ? "ml-8" : "ml-28"}`}>
+      <img src={logo} className=" w-23" /> <div className="badge badge-neutral ml-2 mt-1 badge-xs">Desktop</div>
     </div>
     <div className="drag flex-1 h-full">
 

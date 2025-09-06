@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import IconHome from '@renderer/assets/home.svg'
-import IconMenu from '@renderer/assets/menu.svg'
+import IconGithub from '@renderer/assets/github.svg'
 import IconThemeDefault from '@renderer/assets/theme-default.svg'
 import IconThemeDark from '@renderer/assets/theme-dark.svg'
 
-const darkThemeName = "dark"
+const darkThemeName = "black"
 const lightThemeName = "light"
 
 export default function Toolbar() {
@@ -20,20 +20,23 @@ export default function Toolbar() {
             className="btn btn-circle btn-ghost btn-sm p-2 mr-2 hover:bg-blue-900 border-none "
             onClick={async () => {
                 window.api.openUrl({
-                    url: "http://127.0.0.1:8086"
+                    url: "https://dpanel.cc"
                 })
             }}
         >
             <IconHome />
         </div>
-        <div className="dropdown">
-            <div tabIndex={0} role="button" className="btn btn-circle btn-ghost btn-sm p-2 mr-2 hover:bg-blue-900 border-none">
-                <IconMenu />
-            </div>
-            <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-                <li><a>Item 1</a></li>
-                <li><a>Item 2</a></li>
-            </ul>
+        <div
+            tabIndex={0}
+            role="button"
+            className="btn btn-circle btn-ghost btn-sm p-2 mr-2 hover:bg-blue-900 border-none "
+            onClick={async () => {
+                window.api.openUrl({
+                    url: "https://github.com/donknap/dpanel"
+                })
+            }}
+        >
+            <IconGithub />
         </div>
         <label className="swap swap-rotate btn btn-circle btn-ghost btn-sm p-2 hover:bg-blue-900 border-none">
             <input type="checkbox" className="theme-controller" onClick={() => {
