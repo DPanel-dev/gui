@@ -17,7 +17,7 @@ import { EVENT_OPEN_URL, OpenUrlParams,
 } from './types'
 
 
-const workDir = path.join(__dirname, "../", "runtime")
+const workDir = path.join(process.cwd(), "runtime")
 const runConfigPath = path.join(workDir, 'config.json')
 let runConfig = {
   theme: 'light',
@@ -72,11 +72,10 @@ function createWindow(): void {
   if (is.dev && displays.length > 1) {
     mainWindow.setPosition(displays[1].bounds.x, 0)
   }
-
+  mainWindow.webContents.openDevTools()
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.webContents.openDevTools()
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -165,7 +164,7 @@ app.whenReady().then(async () => {
     return 
   })
 
-  ipcMain.handle(EVENT_COPY_TO_CLIPBOARD, (event, text:string) => {
+  ipcMain.handle(EVENT_COPY_TO_CLIPBOARD, (_, text:string) => {
     return clipboard.writeText(text);
   })
 
@@ -173,7 +172,7 @@ app.whenReady().then(async () => {
     return JSON.stringify(runConfig)
   })
 
-  ipcMain.handle(EVENT_RUN_CONFIG_SAVE, async (event, params) => {
+  ipcMain.handle(EVENT_RUN_CONFIG_SAVE, async (_, params) => {
     const result = {...params, ...{env: {
       ...params.env || {},
       "STORAGE_LOCAL_PATH": path.join(workDir, "data"),
@@ -187,7 +186,7 @@ app.whenReady().then(async () => {
     return runConfig
   })
 
-  ipcMain.handle(PROCESS_EVENT_LOAD, (event, name): ProcessMessageResult => {
+  ipcMain.handle(PROCESS_EVENT_LOAD, (_, name): ProcessMessageResult => {
     let myProcess:ProcessResult|undefined = runProcess.find(item => item.name == name)
     const history = eventReplyHistory().map(item => {
       return item[1]
@@ -214,7 +213,6 @@ app.whenReady().then(async () => {
     let defaultEnv = {
       "PATH": `${process.env.PATH}${path.delimiter}${workDir}`
     }
-    console.log("runConfig", runConfig);
     
     if (runConfig && runConfig.env) {
       defaultEnv = {
@@ -257,7 +255,7 @@ app.whenReady().then(async () => {
 
       childProcess.on('close', (code) => {
         runProcess = runProcess.filter(item => item.pid != childProcess.pid)
-        const message = `Process Exit Code: ${code}, Pid: ${childProcess.pid}, RunProcess: ${runProcess.length}`
+        const message = `Process Exit Code: ${code}, Pid: ${childProcess.pid}, RunProcess: ${runProcess.length}, Option:  ${JSON.stringify(options)}`
         eventReply(event, PROCESS_EVENT_MESSAGE, getProcessStatus(childProcess), message)
       });
 
@@ -276,7 +274,7 @@ app.whenReady().then(async () => {
       })
 
     } catch (err) {
-      const message = `Process Exit Message: ${err}`
+      const message = `Process Exit Message: ${err}, Option: ${JSON.stringify(options)}`
       eventReply(event, PROCESS_EVENT_MESSAGE, PROCESS_STATUS_EXITED, message)
     }
   });

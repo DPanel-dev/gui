@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import Menu from './components/layout/menu'
 import Title from './components/layout/title'
 import ConsolePage from './components/page/console'
@@ -10,14 +10,14 @@ function App() {
       <Title />
     </div>
     <div className=' main flex-1 flex overflow-hidden'>
-      <BrowserRouter>
+      <HashRouter>
         <Menu />
         <Routes>
           <Route path="/" element={<Navigate to="/console" />} />
           <Route path='/console' element={<ConsolePage />} />
           <Route path='/setting' element={<SettingPage />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </div>
   </main>
 }

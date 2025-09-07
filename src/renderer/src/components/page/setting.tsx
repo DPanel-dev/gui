@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import IconSave from '@renderer/assets/save.svg'
 import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'

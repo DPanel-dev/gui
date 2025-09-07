@@ -34,7 +34,7 @@ const api = {
   },
   onProcessMessage: (callback: EventCallback) => {
     ipcRenderer.removeAllListeners(PROCESS_EVENT_MESSAGE);
-    ipcRenderer.on(PROCESS_EVENT_MESSAGE, (event, status, log) => callback(status, log));
+    ipcRenderer.on(PROCESS_EVENT_MESSAGE, (_, status, log) => callback(status, log));
   },
 
   runConfigLoad: () => {

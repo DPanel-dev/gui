@@ -1,11 +1,10 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { ITerminalOptions, Terminal } from '@xterm/xterm'
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import IconReload from '@renderer/assets/reload.svg'
 import IconPause from '@renderer/assets/pause.svg'
 import IconSend from '@renderer/assets/send.svg'
 import IconStart from '@renderer/assets/start.svg'
-import { SearchAddon } from '@xterm/addon-search'
 import { ConfigResult } from './setting'
 
 const TtyDefaultOption: ITerminalOptions = {
@@ -44,10 +43,8 @@ export default function ConsolePage() {
 
     const fitAddon = new FitAddon()
     const terminal = new Terminal(TtyDefaultOption)
-    const searchAddon = new SearchAddon();
 
     terminal.loadAddon(fitAddon)
-    terminal.loadAddon(searchAddon)
     terminal.open(container)
 
     terminal.attachCustomKeyEventHandler((event) => {

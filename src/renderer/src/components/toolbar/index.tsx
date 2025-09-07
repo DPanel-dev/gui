@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import IconHome from '@renderer/assets/home.svg'
 import IconGithub from '@renderer/assets/github.svg'
 import IconThemeDefault from '@renderer/assets/theme-default.svg'

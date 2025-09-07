@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Toolbar from '../toolbar'
-import logo from '../../../../../resources/logo.png?asset'
+import logo from '../../../../../resources/logo.png'
 
 export default function Title() {
   const [platform, setPlatform] = useState("windows")
@@ -8,7 +8,6 @@ export default function Title() {
     if (window.api) {
       window.api.getPlatform().then(res => {
         console.log(res);
-
         setPlatform(res)
       })
     }

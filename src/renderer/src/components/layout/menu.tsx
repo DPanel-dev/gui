@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import IconConsole from '@renderer/assets/console.svg'
 import IconSetting from '@renderer/assets/setting.svg'
 import { Link, useLocation } from 'react-router'
