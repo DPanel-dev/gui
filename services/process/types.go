@@ -19,23 +19,17 @@ const (
 	StatusError   = "error"
 )
 
-type Event struct {
-	Status string `json:"status"`
-	Log    string `json:"log"`
-}
-
 type Process struct {
-	Name      string `json:"name"`
+	Name      string
 	cmd       *exec.Cmd
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-
 	// FIFO 环形缓冲区
-	logs  []string
-	max   int
-	tail  int
-	count int
-	mu    sync.Mutex
+	logs             []string
+	max              int
+	tail             int
+	count            int
+	mu               sync.Mutex
 }
 
 func (self *Process) SaveLog(line string) {
@@ -53,6 +47,20 @@ func (self *Process) GetLog() string {
 }
 
 type Config struct {
-	App     *application.App
-	WorkDir string
+	App        *application.App
+	WorkDir    string
+	StartupRun []*RunParams
+}
+
+type RunParams struct {
+	Name        string
+	CommandName string
+	Args        []string
+	Environment []string
+	WorkDir     string
+}
+
+type ProcessEventMessage struct {
+	Status string
+	Log    string
 }

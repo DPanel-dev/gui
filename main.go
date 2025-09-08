@@ -4,6 +4,7 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
+	"github.com/donknap/dpanel-gui/function"
 	"log"
 	"log/slog"
 	"os"
@@ -11,10 +12,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/donknap/dpanel-gui/services/config"
 	"github.com/donknap/dpanel-gui/services/process"
+	"github.com/donknap/dpanel-gui/services/setting"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
 	log2 "github.com/wailsapp/wails/v3/pkg/services/log"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
@@ -40,24 +40,16 @@ func main() {
 	workDir := filepath.Dir(exePath)
 	_ = os.Setenv("DP_WORK_DIR", workDir)
 
-	kvStoreServiceConfigFile := filepath.Join(workDir, "setting.json")
-	kvStoreService := kvstore.NewWithConfig(&kvstore.Config{
-		Filename: kvStoreServiceConfigFile,
-		AutoSave: true,
-	})
-
-	notificationService := notifications.New()
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
 	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
-		Name:        "dpanel-gui-wails-v3",
-		Description: "A demo of using raw HTML & CSS",
+		Name:        "dpanel-desktop",
+		Description: "A service manager that runs the DPanel cli program",
 		Services: []application.Service{
 			application.NewService(log2.New()),
-			application.NewService(kvStoreService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -67,40 +59,38 @@ func main() {
 		},
 	})
 
-	app.RegisterService(application.NewService(process.New(&process.Config{
-		App:     app,
+	settingService := setting.New(&setting.Config{
 		WorkDir: workDir,
-	})))
+	})
+	app.RegisterService(application.NewService(settingService))
 
-	if runtime.GOOS == "windows" {
-		app.RegisterService(application.NewService(notificationService))
+	startupRunApp := make([]*process.RunParams, 0)
+	if v := settingService.Get(); v.Apps != nil {
+		startupRunApp = function.PluckArrayWalk(v.Apps, func(app setting.App) (*process.RunParams, bool) {
+			if !app.AutoRun {
+				return nil, false
+			}
+			return &process.RunParams{
+				Name:        app.Name,
+				CommandName: app.CommandName,
+				Args:        app.Args,
+				Environment: function.PluckArrayWalk(app.Environment, func(item setting.EnvironmentItem) (string, bool) {
+					return fmt.Sprintf("%s=%s", item.Name, item.Value), true
+				}),
+			}, true
+		})
 	}
 
-	// 初始化配置
-	if _, err := os.Stat(kvStoreServiceConfigFile); err != nil {
-		err = kvStoreService.Set("system", config.System{
-			AutoLaunch:      false,
-			CloseWindowHide: true,
-			Theme:           "light",
-			AutoOpenAppUrl:  false,
-		})
-		if err != nil {
-			panic(err)
-		}
-		err = kvStoreService.Set("dpanel", config.App{
-			Env: []string{
-				"APP_SERVER_PORT=8086",
-				fmt.Sprintf("STORAGE_LOCAL_PATH=%s", filepath.Join(workDir, "data")),
-			},
-			Command: "./dpanel",
-			Args: []string{
-				"server:start",
-			},
-		})
+	processService := process.New(&process.Config{
+		App:        app,
+		WorkDir:    workDir,
+		StartupRun: startupRunApp,
+	})
+	app.RegisterService(application.NewService(processService))
 
-		if err != nil {
-			panic(err)
-		}
+	if runtime.GOOS == "windows" {
+		notificationService := notifications.New()
+		app.RegisterService(application.NewService(notificationService))
 	}
 
 	// Create a new window with the necessary options.
@@ -117,8 +107,8 @@ func main() {
 		Windows:   application.WindowsWindow{},
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
+			Backdrop:                application.MacBackdropLiquidGlass,
+			TitleBar:                application.MacTitleBarDefault,
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",

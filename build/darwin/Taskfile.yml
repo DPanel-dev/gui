@@ -70,6 +70,7 @@ tasks:
       - cp {{.BIN_DIR}}/{{.APP_NAME}} {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS
       - cp build/darwin/Info.plist {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents
       - codesign --force --deep --sign - {{.BIN_DIR}}/{{.APP_NAME}}.app
+      - cp /Users/renchao/Workspace/go/dpanel/bin/dpanel {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/dpanel
 
   run:
     cmds:
@@ -78,4 +79,5 @@ tasks:
       - cp {{.BIN_DIR}}/{{.APP_NAME}} {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS
       - cp build/darwin/Info.dev.plist {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist
       - codesign --force --deep --sign - {{.BIN_DIR}}/{{.APP_NAME}}.dev.app
+      - cp /Users/renchao/Workspace/go/dpanel/bin/dpanel {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/dpanel
       - '{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}'

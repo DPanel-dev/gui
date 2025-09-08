@@ -40,6 +40,11 @@ func (self *ProcessService) ServiceShutdown() error {
 
 func (self *ProcessService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	self.ctx = ctx
+	if self.config.StartupRun != nil {
+		for _, params := range self.config.StartupRun {
+			self.Run(params)
+		}
+	}
 	return nil
 }
 
@@ -47,59 +52,65 @@ func (self *ProcessService) ServiceName() string {
 	return "github.com/donknap/dpanel-gui/process"
 }
 
-func (self *ProcessService) Run(processName string, commandName string, args ...string) bool {
-	if v, ok := self.processList.Load(processName); ok {
-		self.event(processName, &Event{
+func (self *ProcessService) Run(params *RunParams) bool {
+	if v, ok := self.processList.Load(params.Name); ok && v.(*Process).cmd.Process != nil && v.(*Process).cmd.ProcessState.Success() {
+		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
 			Status: StatusRunning,
 			Log:    v.(*Process).GetLog(),
 		})
 		return true
 	}
 	process := &Process{
-		Name: processName,
+		Name: params.Name,
 		max:  200,
 		logs: make([]string, 200),
 	}
 	process.ctx, process.ctxCancel = context.WithCancel(self.ctx)
+	defer func() {
+		slog.Debug("process service", "defer", process)
+		// 无论如何都存储起来，需要收集错误及信息
+		self.processList.Store(params.Name, process)
+	}()
 
 	out, err := func() (io.ReadCloser, error) {
-		cmd := exec.CommandContext(process.ctx, commandName, args...)
-		cmd.Dir = self.config.WorkDir
+		process.cmd = exec.CommandContext(process.ctx, params.CommandName, params.Args...)
+		process.cmd.Dir = self.config.WorkDir
 		for _, item := range os.Environ() {
 			if strings.HasPrefix(item, "PATH=") {
-				cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), self.config.WorkDir))
+				process.cmd.Env = append(process.cmd.Env, fmt.Sprintf("PATH=%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), self.config.WorkDir))
 			} else {
-				cmd.Env = append(cmd.Env, item)
+				process.cmd.Env = append(process.cmd.Env, item)
 			}
 		}
-		slog.Debug("process service", "op", "process cmd", "workdir", self.config.WorkDir, "env", cmd.Env)
+		slog.Debug("process service", "op", "process cmd", "workdir", self.config.WorkDir, "env", process.cmd.Env)
 
-		stdout, err := cmd.StdoutPipe()
+		stdout, err := process.cmd.StdoutPipe()
 		if err != nil {
 			return nil, err
 		}
-		cmd.Stderr = cmd.Stdout
-		if err = cmd.Start(); err != nil {
+		process.cmd.Stderr = process.cmd.Stdout
+		if err = process.cmd.Start(); err != nil {
 			return nil, err
 		}
 		go func() {
-			err := cmd.Wait()
+			err := process.cmd.Wait()
 			if err != nil {
-				self.event(processName, &Event{
+				process.logs = append(process.logs, err.Error())
+				self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
 					Status: StatusError,
-					Log:    err.Error() + "\n",
+					Log:    err.Error() + "333\n",
 				})
 				slog.Debug("process service", "op", "process wait", "err", err)
 			}
 		}()
-		self.processList.Store(processName, process)
 		return stdout, nil
 	}()
 
 	if err != nil {
-		self.event(processName, &Event{
+		process.logs = append(process.logs, err.Error())
+		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
 			Status: StatusError,
-			Log:    err.Error() + "\n",
+			Log:    err.Error() + "222\n",
 		})
 		return false
 	}
@@ -111,7 +122,7 @@ func (self *ProcessService) Run(processName string, commandName string, args ...
 			line = line + "\n"
 		}
 		process.SaveLog(line)
-		self.event(processName, &Event{
+		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
 			Status: StatusRunning,
 			Log:    line,
 		})
@@ -119,8 +130,25 @@ func (self *ProcessService) Run(processName string, commandName string, args ...
 	return true
 }
 
-func (self ProcessService) event(processName string, message *Event) {
-	eventName := fmt.Sprintf(EventMessage, processName)
+func (self *ProcessService) EventEmit(eventName string, message *ProcessEventMessage) {
 	self.config.App.Event.Emit(eventName, message)
 	slog.Debug("process run", "event", eventName, "message", message)
+}
+
+func (self *ProcessService) GetEventName(processName string) string {
+	return fmt.Sprintf(EventMessage, processName)
+}
+
+func (self *ProcessService) GetProcessStatus(name string) ProcessEventMessage {
+	if v, ok := self.processList.Load(name); ok {
+		return ProcessEventMessage{
+			Status: v.(*Process).cmd.ProcessState.String(),
+			Log:    v.(*Process).GetLog(),
+		}
+	} else {
+		return ProcessEventMessage{
+			Status: StatusStopped,
+			Log: "",
+		}
+	}
 }
