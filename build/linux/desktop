@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=My Product Description
+Name=DPanel Desktop
+Comment=DPanel Desktop Manager
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/dpanel-gui-wails-v3.exe %u
+Exec=/usr/local/bin/dpanel-desktop.exe %u
 Terminal=false
 Type=Application
-Icon=dpanel-gui-wails-v3.exe
+Icon=dpanel-desktop.exe
 Categories=Utility;
-StartupWMClass=dpanel-gui-wails-v3.exe
+StartupWMClass=dpanel-desktop.exe
 
  

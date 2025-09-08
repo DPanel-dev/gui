@@ -6,15 +6,15 @@
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10">
   
   <Identity 
-    Name="com.wails.dpanel-gui-wails-v3"
-    Publisher="CN=My Company"
-    Version="0.1.0.0" 
+    Name="com.dpanel.dpanel-desktop"
+    Publisher="CN=DPanel"
+    Version="1.0.0.0" 
     ProcessorArchitecture="x64" />
   
   <Properties>
-    <DisplayName>My Product</DisplayName>
-    <PublisherDisplayName>My Company</PublisherDisplayName>
-    <Description>My Product Description</Description>
+    <DisplayName>DPanel Desktop</DisplayName>
+    <PublisherDisplayName>DPanel</PublisherDisplayName>
+    <Description>DPanel Desktop Manager</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   
@@ -27,10 +27,10 @@
   </Resources>
   
   <Applications>
-    <Application Id="com.wails.dpanel-gui-wails-v3" Executable="dpanel-gui-wails-v3.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="com.dpanel.dpanel-desktop" Executable="dpanel-desktop.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="My Product"
-        Description="My Product Description"
+        DisplayName="DPanel Desktop"
+        Description="DPanel Desktop Manager"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
@@ -39,7 +39,7 @@
       </uap:VisualElements>
       
       <Extensions>
-        <desktop:Extension Category="windows.fullTrustProcess" Executable="dpanel-gui-wails-v3.exe" />
+        <desktop:Extension Category="windows.fullTrustProcess" Executable="dpanel-desktop.exe" />
         
       </Extensions>
     </Application>

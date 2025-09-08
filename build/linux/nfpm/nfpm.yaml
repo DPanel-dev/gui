@@ -3,26 +3,26 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "dpanel-gui-wails-v3.exe"
+name: "dpanel-desktop.exe"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+version: "1.0.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "My Product Description"
-vendor: "My Company"
+description: "DPanel Desktop Manager"
+vendor: "DPanel"
 homepage: "https://wails.io"
 license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/dpanel-gui-wails-v3.exe"
-    dst: "/usr/local/bin/dpanel-gui-wails-v3.exe"
+  - src: "./bin/dpanel-desktop.exe"
+    dst: "/usr/local/bin/dpanel-desktop.exe"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/dpanel-gui-wails-v3.exe.png"
-  - src: "./build/linux/dpanel-gui-wails-v3.exe.desktop"
-    dst: "/usr/share/applications/dpanel-gui-wails-v3.exe.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/dpanel-desktop.exe.png"
+  - src: "./build/linux/dpanel-desktop.exe.desktop"
+    dst: "/usr/share/applications/dpanel-desktop.exe.desktop"
 
 # Default dependencies for Debian 12/Ubuntu 22.04+ with WebKit 4.1
 depends:
