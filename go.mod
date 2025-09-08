@@ -1,4 +1,4 @@
-module changeme
+module github.com/donknap/dpanel-gui
 
 go 1.24.0
 
@@ -6,6 +6,7 @@ require github.com/wailsapp/wails/v3 v3.0.0-alpha.26
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
+	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
