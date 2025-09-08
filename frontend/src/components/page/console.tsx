@@ -157,12 +157,14 @@ export default function ConsolePage() {
           <div className="badge badge-sm badge-soft badge-primary ml-2">{status}</div>
         </h3>
       </div>
-      <div className="join gap-0 mr-4  items-center">
-        <button disabled={status != "running"} className="btn rounded-xl btn-primary mr-4 fill-primary-content" onClick={async () => {
-          // window.api.openUrl({
-          //   url: `http://127.0.0.1:${port}`
-          // })
-        }}>
+      <div className="gap-0 mr-4  items-center">
+        <button disabled={status != "running"} className="btn rounded-xl btn-primary mr-4 fill-primary-content flex"
+          onClick={async () => {
+            // window.api.openUrl({
+            //   url: `http://127.0.0.1:${port}`
+            // })
+          }}
+        >
           <IconSend className='w-4' />
           主界面
         </button>
