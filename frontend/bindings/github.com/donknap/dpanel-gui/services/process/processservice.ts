@@ -3,8 +3,24 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
-export function Run(processName: string, commandName: string, ...args: string[]): $CancellablePromise<boolean> {
-    return $Call.ByID(815717712, processName, commandName, args);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+export function EventEmit(eventName: string, message: $models.ProcessEventMessage | null): $CancellablePromise<void> {
+    return $Call.ByID(4023712442, eventName, message);
+}
+
+export function GetEventName(processName: string): $CancellablePromise<string> {
+    return $Call.ByID(1612482016, processName);
+}
+
+export function GetProcessStatus(name: string): $CancellablePromise<$models.ProcessEventMessage> {
+    return $Call.ByID(1508088688, name);
+}
+
+export function Run(params: $models.RunParams | null): $CancellablePromise<boolean> {
+    return $Call.ByID(815717712, params);
 }

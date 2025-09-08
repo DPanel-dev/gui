@@ -34,7 +34,7 @@ export default function Menu() {
   return <div className='h-full bg-base-300 overflow-hidden' style={{ flex: '0 0 auto' }}>
     <ul className="menu p-1 mr-0.5">
       <li className='items-center'>
-        <Link to={"/console/danel"} className={`p-4 ${isActive("/console") ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
+        <Link to={"/console/dpanel"} className={`p-4 ${isActive("/console") ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
           <IconConsole />
         </Link>
       </li>

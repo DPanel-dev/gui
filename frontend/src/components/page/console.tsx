@@ -7,11 +7,10 @@ import IconSend from '@renderer/assets/send.svg'
 import IconStart from '@renderer/assets/start.svg'
 import { SearchAddon } from '@xterm/addon-search'
 import * as runtime from '@wailsio/runtime'
-import { ProcessMessageResult } from '../../types'
-import { getProcessEventName, runCommand } from '../../services/command'
+import { runCommand } from '../../services/command'
 import { systemNotice } from '../../services/notice'
 import { useParams } from 'react-router'
-
+import { ProcessEventMessage, ProcessService } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
 
 const TtyDefaultOption: ITerminalOptions = {
   convertEol: true,
@@ -41,6 +40,8 @@ export default function ConsolePage() {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+
+    console.log(id);
 
     if (!id) {
       return
@@ -99,24 +100,29 @@ export default function ConsolePage() {
     //   setStatus(String(res.status.trim()))
     //   terminal.write(res.log)
     // })
+    ProcessService.GetEventName(id).then(eventName => {
+      runtime.Events.On(eventName, (e) => {
+        const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
+        if (message && message.Status) {
+          setStatus(String(message.Status.trim()))
+        }
+        if (message && message.Log) {
+          terminal.write(message.Log)
+        }
+      })
+    })
 
-    runtime.Events.On(getProcessEventName(id), (e) => {
-      const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessMessageResult) : null;
-      if (message && message.status) {
-        setStatus(String(message.status.trim()))
+    ProcessService.GetProcessStatus(id).then(message => {
+      if (message && message.Status) {
+        setStatus(String(message.Status.trim()))
       }
-      if (message && message.log) {
-        terminal.write(message.log)
+      if (message && message.Log) {
+        terminal.write(message.Log)
       }
     })
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
-
-    if (!window.__DPANEL_STARTED__) {
-      runProcess(id)
-      window.__DPANEL_STARTED__ = true
-    }
 
     return () => {
       console.log("events off all");

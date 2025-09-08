@@ -1,43 +1,44 @@
-import * as kvstore from '../../bindings/github.com/wailsapp/wails/v3/pkg/services/kvstore'
 import * as runtime from '@wailsio/runtime'
 import * as process from '../../bindings/github.com/donknap/dpanel-gui/services/process'
+import { SettingService } from '../../bindings/github.com/donknap/dpanel-gui/services/setting'
 
-
-export interface Command {
-  id: string,
-  name: string
-  args: string[]
-  env?: string[]
-}
-
-export interface ProcessMessageResult {
-  log: string,
-  status: string,
-}
-
-export const PROCESS_EVENT_MESSAGE_PREFIX = 'dp-process'
-
-export async function runCommand(id: string): Promise<boolean> {
+export async function runCommand(name: string): Promise<boolean> {
   try {
-    // 首先获取配置，如果没有配置则先初始化配置信息
-    const config = await kvstore.KVStoreService.Get(id)
-    const status = await process.ProcessService.Run(id, config.command, ...config.args)
+    const config = await SettingService.GetApp(name)
+    if (!config || config.Name == "" || config.CommandName == "") {
+      throw new Error("App was not found or was incompletely configured.")
+    }
+    console.log({
+      Name: config.Name,
+      CommandName: config.CommandName,
+      Args: config.Args,
+      Environment: config.Environment ? config.Environment.map(item => {
+        return `${item.Name}=${item.Value}`
+      }) : null,
+      WorkDir: ""
+    });
+
+    const status = await process.ProcessService.Run({
+      Name: config.Name,
+      CommandName: config.CommandName,
+      Args: config.Args,
+      Environment: config.Environment ? config.Environment.map(item => {
+        return `${item.Name}=${item.Value}`
+      }) : null,
+      WorkDir: ""
+    })
     if (!status) {
       return false
     }
   } catch (e) {
     runtime.Events.Emit({
-      name: getProcessEventName(id),
+      name: await process.ProcessService.GetEventName(name),
       data: {
-        log: String(e),
-        status: "error"
-      } as ProcessMessageResult
+        Log: String(e),
+        Status: "error"
+      } as process.ProcessEventMessage
     })
     return false
   }
   return true
-}
-
-export function getProcessEventName(name: string) {
-  return `${PROCESS_EVENT_MESSAGE_PREFIX}-${name}`
 }
