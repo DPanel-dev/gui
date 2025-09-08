@@ -8,19 +8,22 @@ import IconThemeDefault from '@renderer/assets/theme-default.svg'
 import IconThemeDark from '@renderer/assets/theme-dark.svg'
 import { darkThemeName, lightThemeName } from '../../types/type'
 import * as runtime from '@wailsio/runtime'
-import * as notification from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/notifications'
 import * as logger from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/log'
+import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
+import { getTextHead } from '../../services/utils'
 
 export default function Menu() {
   const location = useLocation();
   const [theme, setTheme] = useState("light")
-
+  const [app, setApp] = useState<App[]>()
   useEffect(() => {
-    // notification.NotificationService.SendNotification({
-    //   id: "test",
-    //   title: "hello"
-    // })
     logger.LogService.Info("我是前端来测试的")
+
+    SettingService.Get().then(res => {
+      if (res.Apps) {
+        setApp(res.Apps)
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -28,22 +31,25 @@ export default function Menu() {
   }, [theme])
 
   function isActive(pathname: string) {
-    return location.pathname.includes(pathname)
+    return location.pathname == pathname
   }
 
   return <div className='h-full bg-base-300 overflow-hidden' style={{ flex: '0 0 auto' }}>
     <ul className="menu p-1 mr-0.5">
-      <li className='items-center'>
-        <Link to={"/console/dpanel"} className={`p-4 ${isActive("/console") ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
-          <IconConsole />
-        </Link>
-      </li>
+      {app?.map(item => {
+        return <li className='items-center' key={item.RunParams.Name}>
+          <Link to={`/console/${item.RunParams.Name}`} className={`p-4 font-semibold text-xl shadow-md ${isActive(`/console/${item.RunParams.Name}`) ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
+            {getTextHead(item.RunParams.Name, 2)}
+          </Link>
+        </li>
+      })}
+
       <li className='items-center mt-3'>
         <Link to={"/setting"} className={`p-4 ${isActive("/setting") ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
           <IconSetting />
         </Link>
       </li>
-      <li className='items-center mt-3'>
+      <li className='items-center mt-3 '>
         <label className="swap swap-rotate p-4  fill-base-content">
           <input type="checkbox" className="theme-controller" onClick={() => {
             setTheme((prev) => {

@@ -21,6 +21,6 @@ export function GetProcessStatus(name: string): $CancellablePromise<$models.Proc
     return $Call.ByID(1508088688, name);
 }
 
-export function Run(params: $models.RunParams | null): $CancellablePromise<boolean> {
-    return $Call.ByID(815717712, params);
+export function Run(params: $models.RunParams, option: $models.RunOption): $CancellablePromise<boolean> {
+    return $Call.ByID(815717712, params, option);
 }

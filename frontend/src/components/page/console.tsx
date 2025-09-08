@@ -100,7 +100,7 @@ export default function ConsolePage() {
     //   setStatus(String(res.status.trim()))
     //   terminal.write(res.log)
     // })
-    ProcessService.GetEventName(id).then(eventName => {
+    ProcessService.GetEventName(id).then((eventName: string) => {
       runtime.Events.On(eventName, (e) => {
         const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
         if (message && message.Status) {
@@ -112,7 +112,7 @@ export default function ConsolePage() {
       })
     })
 
-    ProcessService.GetProcessStatus(id).then(message => {
+    ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
       if (message && message.Status) {
         setStatus(String(message.Status.trim()))
       }
@@ -128,7 +128,7 @@ export default function ConsolePage() {
       console.log("events off all");
       runtime.Events.OffAll()
     }
-  }, [])
+  }, [id])
 
   useEffect(() => {
     resize()
