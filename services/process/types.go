@@ -25,11 +25,11 @@ type Process struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	// FIFO 环形缓冲区
-	logs             []string
-	max              int
-	tail             int
-	count            int
-	mu               sync.Mutex
+	logs  []string
+	max   int
+	tail  int
+	count int
+	mu    sync.Mutex
 }
 
 func (self *Process) SaveLog(line string) {
@@ -47,17 +47,27 @@ func (self *Process) GetLog() string {
 }
 
 type Config struct {
-	App        *application.App
-	WorkDir    string
-	StartupRun []*RunParams
+	App            *application.App
+	WorkDir        string
+	StartupHandler func(ctx context.Context, self *ProcessService)
 }
 
 type RunParams struct {
 	Name        string
 	CommandName string
 	Args        []string
-	Environment []string
-	WorkDir     string
+	Environment []EnvironmentItem
+}
+
+type RunOption struct {
+	LogMaxLine int
+	AutoRun    bool
+	WorkDir    string
+}
+
+type EnvironmentItem struct {
+	Name  string
+	Value string
 }
 
 type ProcessEventMessage struct {

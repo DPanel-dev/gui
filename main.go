@@ -1,10 +1,9 @@
 package main
 
 import (
+	"context"
 	"embed"
 	_ "embed"
-	"fmt"
-	"github.com/donknap/dpanel-gui/function"
 	"log"
 	"log/slog"
 	"os"
@@ -64,27 +63,18 @@ func main() {
 	})
 	app.RegisterService(application.NewService(settingService))
 
-	startupRunApp := make([]*process.RunParams, 0)
-	if v := settingService.Get(); v.Apps != nil {
-		startupRunApp = function.PluckArrayWalk(v.Apps, func(app setting.App) (*process.RunParams, bool) {
-			if !app.AutoRun {
-				return nil, false
-			}
-			return &process.RunParams{
-				Name:        app.Name,
-				CommandName: app.CommandName,
-				Args:        app.Args,
-				Environment: function.PluckArrayWalk(app.Environment, func(item setting.EnvironmentItem) (string, bool) {
-					return fmt.Sprintf("%s=%s", item.Name, item.Value), true
-				}),
-			}, true
-		})
-	}
-
 	processService := process.New(&process.Config{
-		App:        app,
-		WorkDir:    workDir,
-		StartupRun: startupRunApp,
+		App:     app,
+		WorkDir: workDir,
+		StartupHandler: func(ctx context.Context, self *process.ProcessService) {
+			if v := settingService.Get(); v.Apps != nil {
+				for _, item := range v.Apps {
+					if item.RunOption.AutoRun {
+						self.Run(item.RunParams, item.RunOption)
+					}
+				}
+			}
+		},
 	})
 	app.RegisterService(application.NewService(processService))
 

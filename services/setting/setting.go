@@ -2,12 +2,15 @@ package setting
 
 import (
 	"context"
-	"github.com/donknap/dpanel-gui/function"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/donknap/dpanel-gui/function"
+	"github.com/donknap/dpanel-gui/services/process"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
 )
 
 var defaultConfig = AllConfig{
@@ -18,30 +21,37 @@ var defaultConfig = AllConfig{
 	},
 	Apps: []App{
 		{
-			Name:        "dpanel",
-			CommandName: "./dpanel",
-			Args: []string{
-				"server:start",
-			},
-			Environment: []EnvironmentItem{
-				{
-					Name:  "APP_SERVER_PORT",
-					Value: "8086",
-					Label: EnvironmentLabelItem{
-						ZhCN: "服务运行端口",
-						EnUS: "Service running port",
-					},
+			RunParams: process.RunParams{
+				Name:        "dpanel",
+				CommandName: "./dpanel",
+				Args: []string{
+					"server:start",
 				},
-				{
-					Name:  "STORAGE_LOCAL_PATH",
-					Value: "${DP_WORK_DIR}/data",
-					Label: EnvironmentLabelItem{
-						ZhCN: "数据存储目录",
-						EnUS: "Data storage directory",
+				Environment: []process.EnvironmentItem{
+					{
+						Name:  "APP_SERVER_PORT",
+						Value: "8086",
+					},
+					{
+						Name:  "STORAGE_LOCAL_PATH",
+						Value: "${DP_WORK_DIR}/data",
 					},
 				},
 			},
-			AutoRun: true,
+			RunOption: process.RunOption{
+				LogMaxLine: 1000,
+				AutoRun:    true,
+			},
+			Setting: map[string]EnvironmentLabelItem{
+				"APP_SERVER_PORT": {
+					ZhCN: "服务运行端口",
+					EnUS: "Service running port",
+				},
+				"STORAGE_LOCAL_PATH": {
+					ZhCN: "数据存储目录",
+					EnUS: "Data storage directory",
+				},
+			},
 		},
 	},
 }
@@ -68,7 +78,7 @@ type SettingService struct {
 func (self *SettingService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	self.ctx = ctx
 	if _, err := os.Stat(self.configFilePath); err != nil {
-		err = self.kvStoreService.Set("setting", defaultConfig)
+		err = self.kvStoreService.Set("Setting", defaultConfig)
 		if err != nil {
 			return err
 		}
@@ -85,12 +95,25 @@ func (self *SettingService) ServiceName() string {
 }
 
 func (self *SettingService) Get() AllConfig {
+	_ = self.kvStoreService.Load()
+	if data := self.kvStoreService.Get(""); data != nil {
+		if dataStr, err := json.Marshal(data.(map[string]any)["Setting"]); err == nil {
+			slog.Debug("config get data", "data", string(dataStr))
+			config := AllConfig{}
+			err = json.Unmarshal(dataStr, &config)
+			if err != nil {
+				return defaultConfig
+			} else {
+				return config
+			}
+		}
+	}
 	return defaultConfig
 }
 
 func (self *SettingService) GetApp(name string) App {
 	if v, ok := function.PluckArrayItemWalk(self.Get().Apps, func(item App) bool {
-		if name == item.Name {
+		if name == item.RunParams.Name {
 			return true
 		}
 		return false

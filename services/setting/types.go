@@ -1,5 +1,7 @@
 package setting
 
+import "github.com/donknap/dpanel-gui/services/process"
+
 type Config struct {
 	WorkDir string
 }
@@ -11,11 +13,9 @@ type System struct {
 }
 
 type App struct {
-	Name        string
-	Environment []EnvironmentItem
-	CommandName string
-	Args        []string
-	AutoRun     bool
+	RunParams process.RunParams
+	RunOption process.RunOption
+	Setting   map[string]EnvironmentLabelItem
 }
 
 type AllConfig struct {
@@ -26,10 +26,4 @@ type AllConfig struct {
 type EnvironmentLabelItem struct {
 	ZhCN string
 	EnUS string
-}
-
-type EnvironmentItem struct {
-	Name  string
-	Value string
-	Label EnvironmentLabelItem
 }

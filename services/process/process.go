@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/donknap/dpanel-gui/function"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -40,10 +41,8 @@ func (self *ProcessService) ServiceShutdown() error {
 
 func (self *ProcessService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	self.ctx = ctx
-	if self.config.StartupRun != nil {
-		for _, params := range self.config.StartupRun {
-			self.Run(params)
-		}
+	if self.config.StartupHandler != nil {
+		self.config.StartupHandler(ctx, self)
 	}
 	return nil
 }
@@ -52,18 +51,15 @@ func (self *ProcessService) ServiceName() string {
 	return "github.com/donknap/dpanel-gui/process"
 }
 
-func (self *ProcessService) Run(params *RunParams) bool {
-	if v, ok := self.processList.Load(params.Name); ok && v.(*Process).cmd.Process != nil && v.(*Process).cmd.ProcessState.Success() {
-		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
-			Status: StatusRunning,
-			Log:    v.(*Process).GetLog(),
-		})
+func (self *ProcessService) Run(params RunParams, option RunOption) bool {
+	if v := self.GetProcessStatus(params.Name); strings.Contains(v.Status, StatusRunning) {
 		return true
 	}
+	slog.Debug("process service", "params", params, "option", option)
 	process := &Process{
 		Name: params.Name,
-		max:  200,
-		logs: make([]string, 200),
+		max:  option.LogMaxLine,
+		logs: make([]string, option.LogMaxLine),
 	}
 	process.ctx, process.ctxCancel = context.WithCancel(self.ctx)
 	defer func() {
@@ -82,6 +78,20 @@ func (self *ProcessService) Run(params *RunParams) bool {
 				process.cmd.Env = append(process.cmd.Env, item)
 			}
 		}
+		process.cmd.Env = append(process.cmd.Env, function.PluckArrayWalk(params.Environment, func(item EnvironmentItem) (string, bool) {
+			return fmt.Sprintf("%s=%s", item.Name, os.Expand(item.Value, func(s string) string {
+				if v, ok := function.PluckArrayItemWalk(process.cmd.Env, func(item string) bool {
+					return strings.HasPrefix(item, s+"=")
+				}); ok {
+					if idx := strings.Index(v, "="); idx > 0 {
+						return v[idx+1:]
+					}
+					return ""
+				} else {
+					return ""
+				}
+			})), true
+		})...)
 		slog.Debug("process service", "op", "process cmd", "workdir", self.config.WorkDir, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()
@@ -115,18 +125,21 @@ func (self *ProcessService) Run(params *RunParams) bool {
 		return false
 	}
 
-	scanner := bufio.NewScanner(out)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasSuffix(line, "\n") {
-			line = line + "\n"
+	go func() {
+		scanner := bufio.NewScanner(out)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasSuffix(line, "\n") {
+				line = line + "\n"
+			}
+			process.SaveLog(line)
+			self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
+				Status: StatusRunning,
+				Log:    line,
+			})
 		}
-		process.SaveLog(line)
-		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
-			Status: StatusRunning,
-			Log:    line,
-		})
-	}
+		slog.Debug("process service read out close")
+	}()
 	return true
 }
 
@@ -141,14 +154,23 @@ func (self *ProcessService) GetEventName(processName string) string {
 
 func (self *ProcessService) GetProcessStatus(name string) ProcessEventMessage {
 	if v, ok := self.processList.Load(name); ok {
-		return ProcessEventMessage{
-			Status: v.(*Process).cmd.ProcessState.String(),
-			Log:    v.(*Process).GetLog(),
+		myProcess := v.(*Process)
+		slog.Debug("process service run exists", "process", myProcess)
+		if myProcess.cmd != nil && myProcess.cmd.Process != nil {
+			status := ""
+			if myProcess.cmd.Process.Pid > 0 {
+				status = fmt.Sprintf("%s (%d)", StatusRunning, myProcess.cmd.Process.Pid)
+			} else {
+				status = myProcess.cmd.ProcessState.String()
+			}
+			return ProcessEventMessage{
+				Status: status,
+				Log:    v.(*Process).GetLog(),
+			}
 		}
-	} else {
-		return ProcessEventMessage{
-			Status: StatusStopped,
-			Log: "",
-		}
+	}
+	return ProcessEventMessage{
+		Status: StatusStopped,
+		Log:    "",
 	}
 }
