@@ -13,6 +13,7 @@ export interface AllConfig {
 export interface App {
     "RunParams": process$0.RunParams;
     "RunOption": process$0.RunOption;
+    "KillParams": process$0.RunParams;
     "Setting": { [_: string]: EnvironmentLabelItem } | null;
 }
 

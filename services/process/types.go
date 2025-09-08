@@ -63,6 +63,7 @@ type RunOption struct {
 	LogMaxLine int
 	AutoRun    bool
 	WorkDir    string
+	KillParams RunParams
 }
 
 type EnvironmentItem struct {

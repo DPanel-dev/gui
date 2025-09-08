@@ -15,6 +15,7 @@ export interface RunOption {
     "LogMaxLine": number;
     "AutoRun": boolean;
     "WorkDir": string;
+    "KillParams": RunParams;
 }
 
 export interface RunParams {

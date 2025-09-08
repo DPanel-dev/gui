@@ -157,9 +157,9 @@ export default function ConsolePage() {
   return <div className='flex-1 h-full flex flex-col overflow-hidden'>
     {/* 菜单 */}
     <div className='bg-base-300 rounded-box items-center no-animation p-5 m-5 flex'>
-      <div className='prose w-60 mr-auto'>
+      <div className='prose w-80 mr-auto'>
         <h3 className='pl-5'>
-          控制台
+          {id} 控制台
           <div className="badge badge-sm badge-soft badge-primary ml-2">{status}</div>
         </h3>
       </div>

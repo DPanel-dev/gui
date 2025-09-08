@@ -32,6 +32,7 @@ type ProcessService struct {
 func (self *ProcessService) ServiceShutdown() error {
 	self.processList.Range(func(key, value interface{}) bool {
 		if v, ok := value.(*Process); ok && v.ctxCancel != nil {
+			slog.Debug("process service", "shutdown", v)
 			v.ctxCancel()
 		}
 		return true
@@ -67,20 +68,25 @@ func (self *ProcessService) Run(params RunParams, option RunOption) bool {
 		// 无论如何都存储起来，需要收集错误及信息
 		self.processList.Store(params.Name, process)
 	}()
+	runEnv := make([]string, 0)
 
 	out, err := func() (io.ReadCloser, error) {
 		process.cmd = exec.CommandContext(process.ctx, params.CommandName, params.Args...)
-		process.cmd.Dir = self.config.WorkDir
+		if filepath.IsAbs(option.WorkDir) {
+			process.cmd.Dir = option.WorkDir
+		} else {
+			process.cmd.Dir = filepath.Join(self.config.WorkDir, option.WorkDir)
+		}
 		for _, item := range os.Environ() {
 			if strings.HasPrefix(item, "PATH=") {
-				process.cmd.Env = append(process.cmd.Env, fmt.Sprintf("PATH=%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), self.config.WorkDir))
+				runEnv = append(runEnv, fmt.Sprintf("PATH=%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), process.cmd.Dir))
 			} else {
-				process.cmd.Env = append(process.cmd.Env, item)
+				runEnv = append(runEnv, item)
 			}
 		}
-		process.cmd.Env = append(process.cmd.Env, function.PluckArrayWalk(params.Environment, func(item EnvironmentItem) (string, bool) {
+		runEnv = append(runEnv, function.PluckArrayWalk(params.Environment, func(item EnvironmentItem) (string, bool) {
 			return fmt.Sprintf("%s=%s", item.Name, os.Expand(item.Value, func(s string) string {
-				if v, ok := function.PluckArrayItemWalk(process.cmd.Env, func(item string) bool {
+				if v, ok := function.PluckArrayItemWalk(runEnv, func(item string) bool {
 					return strings.HasPrefix(item, s+"=")
 				}); ok {
 					if idx := strings.Index(v, "="); idx > 0 {
@@ -92,6 +98,8 @@ func (self *ProcessService) Run(params RunParams, option RunOption) bool {
 				}
 			})), true
 		})...)
+
+		process.cmd.Env = runEnv
 		slog.Debug("process service", "op", "process cmd", "workdir", self.config.WorkDir, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()
@@ -123,6 +131,22 @@ func (self *ProcessService) Run(params RunParams, option RunOption) bool {
 			Log:    err.Error() + "222\n",
 		})
 		return false
+	}
+
+	if option.KillParams.CommandName != "" {
+		go func() {
+			<-process.ctx.Done()
+			killCtx, killCancel := context.WithCancel(process.ctx)
+			defer func() {
+				killCancel()
+			}()
+			killCmd := exec.CommandContext(killCtx, option.KillParams.CommandName, option.KillParams.Args...)
+			killCmd.Env = runEnv
+			err = killCmd.Run()
+			if err != nil {
+				slog.Debug("process service", "op", "process kill", "err", err)
+			}
+		}()
 	}
 
 	go func() {

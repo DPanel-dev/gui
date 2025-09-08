@@ -13,9 +13,10 @@ type System struct {
 }
 
 type App struct {
-	RunParams process.RunParams
-	RunOption process.RunOption
-	Setting   map[string]EnvironmentLabelItem
+	RunParams  process.RunParams
+	RunOption  process.RunOption
+	KillParams process.RunParams
+	Setting    map[string]EnvironmentLabelItem
 }
 
 type AllConfig struct {
