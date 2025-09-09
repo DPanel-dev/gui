@@ -42,5 +42,9 @@ func SplitCommandArray(cmd string) []string {
 	if field != "" {
 		result = append(result, field)
 	}
+	// 补齐 args 避免读取 Nil
+	if len(result) < 2 {
+		result = append(result, "")
+	}
 	return result
 }

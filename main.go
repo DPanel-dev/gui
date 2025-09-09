@@ -67,10 +67,10 @@ func main() {
 		App:     app,
 		WorkDir: workDir,
 		StartupHandler: func(ctx context.Context, self *process.ProcessService) {
-			if v := settingService.Get(); v.Apps != nil {
+			if v := settingService.GetAll(); v.Apps != nil {
 				for _, item := range v.Apps {
-					if item.RunOption.AutoRun {
-						self.Run(item.RunParams, item.RunOption)
+					if item.RunOption.AutoLaunch {
+						go self.Run(item.Name, item.RunOption)
 					}
 				}
 			}

@@ -3,14 +3,15 @@ package setting
 import (
 	"context"
 	"encoding/json"
+	"github.com/donknap/dpanel-gui/function"
+	"github.com/donknap/dpanel-gui/services/process"
+	"github.com/joho/godotenv"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
 	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/donknap/dpanel-gui/function"
-	"github.com/donknap/dpanel-gui/services/process"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
+	"strings"
 )
 
 var defaultConfig = AllConfig{
@@ -21,35 +22,29 @@ var defaultConfig = AllConfig{
 	},
 	Apps: []App{
 		{
-			RunParams: process.RunParams{
-				Name:        "dpanel",
-				CommandName: "./dpanel",
-				Args: []string{
-					"server:start",
-				},
-				Environment: []process.EnvironmentItem{
-					{
-						Name:  "APP_SERVER_PORT",
-						Value: "8086",
-					},
-					{
-						Name:  "STORAGE_LOCAL_PATH",
-						Value: "${DP_WORK_DIR}/data",
-					},
-				},
-			},
+			Name: "dpanel",
 			RunOption: process.RunOption{
-				LogMaxLine: 1000,
-				AutoRun:    true,
-			},
-			Setting: map[string]EnvironmentLabelItem{
-				"APP_SERVER_PORT": {
-					ZhCN: "服务运行端口",
-					EnUS: "Service running port",
+				AutoLaunch:   true,
+				WorkDir:      "./",
+				StartCommand: "./dpanel server:start",
+				StopCommand:  "",
+				Environment: []string{
+					"APP_SERVER_PORT=8086",
+					"STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
 				},
-				"STORAGE_LOCAL_PATH": {
-					ZhCN: "数据存储目录",
-					EnUS: "Data storage directory",
+				LogMaxLine: 1000,
+			},
+			Setting: Setting{
+				HomeUrl: "http://127.0.0.1:${APP_SERVER_PORT}",
+				Environment: map[string]EnvironmentLabelItem{
+					"APP_SERVER_PORT": {
+						ZhCN: "服务运行端口",
+						EnUS: "Service running port",
+					},
+					"STORAGE_LOCAL_PATH": {
+						ZhCN: "数据存储目录",
+						EnUS: "Data storage directory",
+					},
 				},
 			},
 		},
@@ -62,7 +57,7 @@ func New(config *Config) *SettingService {
 		Filename: kvStoreServiceConfigFile,
 		AutoSave: true,
 	})
-	slog.Debug("config service", "config file path", kvStoreServiceConfigFile)
+	slog.Info("config service", "config file path", kvStoreServiceConfigFile)
 	return &SettingService{
 		configFilePath: kvStoreServiceConfigFile,
 		kvStoreService: kvStoreService,
@@ -94,11 +89,11 @@ func (self *SettingService) ServiceName() string {
 	return "github.com/donknap/dpanel-gui/config"
 }
 
-func (self *SettingService) Get() AllConfig {
+func (self *SettingService) GetAll() AllConfig {
 	_ = self.kvStoreService.Load()
 	if data := self.kvStoreService.Get(""); data != nil {
 		if dataStr, err := json.Marshal(data.(map[string]any)["Setting"]); err == nil {
-			slog.Debug("config get data", "data", string(dataStr))
+			slog.Info("config get data", "data", string(dataStr))
 			config := AllConfig{}
 			err = json.Unmarshal(dataStr, &config)
 			if err != nil {
@@ -112,12 +107,17 @@ func (self *SettingService) Get() AllConfig {
 }
 
 func (self *SettingService) GetApp(name string) App {
-	if v, ok := function.PluckArrayItemWalk(self.Get().Apps, func(item App) bool {
-		if name == item.RunParams.Name {
+	if v, ok := function.PluckArrayItemWalk(self.GetAll().Apps, func(item App) bool {
+		if name == item.Name {
 			return true
 		}
 		return false
 	}); ok {
+		if appEnv, err := godotenv.Unmarshal(strings.Join(v.RunOption.Environment, "\n")); err == nil {
+			v.Setting.HomeUrl = os.Expand(v.Setting.HomeUrl, func(s string) string {
+				return appEnv[s]
+			})
+		}
 		return v
 	}
 	return App{}

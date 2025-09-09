@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"sync"
@@ -25,25 +26,33 @@ type Process struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	// FIFO 环形缓冲区
-	logs  []string
-	max   int
-	tail  int
-	count int
-	mu    sync.Mutex
+	logs []string
+	max  int
+	mu   sync.Mutex
 }
 
 func (self *Process) SaveLog(line string) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	self.logs[self.tail] = line
-	self.tail = (self.tail + 1) % self.max
-	if self.count < self.max {
-		self.count++
+	if len(self.logs) == self.max {
+		self.logs = self.logs[1:]
 	}
+	self.logs = append(self.logs, line)
 }
 
 func (self *Process) GetLog() string {
 	return strings.Join(self.logs, "")
+}
+
+func (self *Process) Close() {
+	if self.cmd != nil && self.cmd.Process != nil {
+		err := self.cmd.Process.Kill()
+		if err != nil {
+			slog.Info("process service", "process kill err", err)
+		}
+		self.cmd = nil
+	}
+	self.ctxCancel()
 }
 
 type Config struct {
@@ -52,23 +61,13 @@ type Config struct {
 	StartupHandler func(ctx context.Context, self *ProcessService)
 }
 
-type RunParams struct {
-	Name        string
-	CommandName string
-	Args        []string
-	Environment []EnvironmentItem
-}
-
 type RunOption struct {
-	LogMaxLine int
-	AutoRun    bool
-	WorkDir    string
-	KillParams RunParams
-}
-
-type EnvironmentItem struct {
-	Name  string
-	Value string
+	AutoLaunch   bool
+	WorkDir      string
+	StartCommand string
+	StopCommand  string
+	Environment  []string
+	LogMaxLine   int
 }
 
 type ProcessEventMessage struct {

@@ -10,3 +10,5 @@ run:
 	wails3 dev
 generate-bindings:
 	wails3 generate bindings -i -ts
+clean:
+	rm -rf ./bin/*

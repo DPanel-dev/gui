@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
 	"io"
 	"log/slog"
 	"os"
@@ -32,7 +33,7 @@ type ProcessService struct {
 func (self *ProcessService) ServiceShutdown() error {
 	self.processList.Range(func(key, value interface{}) bool {
 		if v, ok := value.(*Process); ok && v.ctxCancel != nil {
-			slog.Debug("process service", "shutdown", v)
+			slog.Info("process service", "shutdown", v)
 			v.ctxCancel()
 		}
 		return true
@@ -52,55 +53,56 @@ func (self *ProcessService) ServiceName() string {
 	return "github.com/donknap/dpanel-gui/process"
 }
 
-func (self *ProcessService) Run(params RunParams, option RunOption) bool {
-	if v := self.GetProcessStatus(params.Name); strings.Contains(v.Status, StatusRunning) {
+func (self *ProcessService) Run(name string, option RunOption) bool {
+	if v := self.GetProcessStatus(name); strings.Contains(v.Status, StatusRunning) {
 		return true
 	}
-	slog.Debug("process service", "params", params, "option", option)
+	slog.Info("process service", "name", name, "option", option)
+
 	process := &Process{
-		Name: params.Name,
+		Name: name,
 		max:  option.LogMaxLine,
-		logs: make([]string, option.LogMaxLine),
+		logs: make([]string, 0),
 	}
 	process.ctx, process.ctxCancel = context.WithCancel(self.ctx)
+
 	defer func() {
-		slog.Debug("process service", "defer", process)
+		slog.Info("process service defer", "process", process)
+		// 这里退出后，表示命令已经执行完成，需要重重置掉 cmd 对象，但是还需要保留执行结果，不能把 process 对象删除
+		process.Close()
 		// 无论如何都存储起来，需要收集错误及信息
-		self.processList.Store(params.Name, process)
+		self.processList.Store(name, process)
 	}()
-	runEnv := make([]string, 0)
 
+	workDir := ""
+	if filepath.IsAbs(option.WorkDir) {
+		workDir = option.WorkDir
+	} else {
+		workDir = filepath.Join(self.config.WorkDir, option.WorkDir)
+	}
+
+	runEnv := os.Environ()
+	runEnv = append(runEnv, "DP_WORK_DIR="+workDir)
+	runEnv = append(runEnv, option.Environment...)
+	appEnvMap, err := godotenv.Unmarshal(strings.Join(runEnv, "\n"))
+	if err != nil {
+		process.SaveLog(err.Error())
+		self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
+			Status: StatusError,
+			Log:    err.Error() + "\n",
+		})
+		return false
+	}
+	runEnv = function.PluckMapWalkArray(appEnvMap, func(name string, value string) (string, bool) {
+		return fmt.Sprintf("%s=%s", name, value), true
+	})
 	out, err := func() (io.ReadCloser, error) {
-		process.cmd = exec.CommandContext(process.ctx, params.CommandName, params.Args...)
-		if filepath.IsAbs(option.WorkDir) {
-			process.cmd.Dir = option.WorkDir
-		} else {
-			process.cmd.Dir = filepath.Join(self.config.WorkDir, option.WorkDir)
-		}
-		for _, item := range os.Environ() {
-			if strings.HasPrefix(item, "PATH=") {
-				runEnv = append(runEnv, fmt.Sprintf("PATH=%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), process.cmd.Dir))
-			} else {
-				runEnv = append(runEnv, item)
-			}
-		}
-		runEnv = append(runEnv, function.PluckArrayWalk(params.Environment, func(item EnvironmentItem) (string, bool) {
-			return fmt.Sprintf("%s=%s", item.Name, os.Expand(item.Value, func(s string) string {
-				if v, ok := function.PluckArrayItemWalk(runEnv, func(item string) bool {
-					return strings.HasPrefix(item, s+"=")
-				}); ok {
-					if idx := strings.Index(v, "="); idx > 0 {
-						return v[idx+1:]
-					}
-					return ""
-				} else {
-					return ""
-				}
-			})), true
-		})...)
-
+		cmdParams := function.SplitCommandArray(option.StartCommand)
+		process.cmd = exec.CommandContext(process.ctx, cmdParams[0], cmdParams[1:]...)
+		process.cmd.Dir = workDir
 		process.cmd.Env = runEnv
-		slog.Debug("process service", "op", "process cmd", "workdir", self.config.WorkDir, "env", process.cmd.Env)
+
+		slog.Info("process service", "op", "process cmd", "cmd", cmdParams, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()
 		if err != nil {
@@ -113,63 +115,78 @@ func (self *ProcessService) Run(params RunParams, option RunOption) bool {
 		go func() {
 			err := process.cmd.Wait()
 			if err != nil {
-				process.logs = append(process.logs, err.Error())
-				self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
+				process.SaveLog(err.Error())
+				self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 					Status: StatusError,
 					Log:    err.Error() + "333\n",
 				})
-				slog.Debug("process service", "op", "process wait", "err", err)
+				slog.Info("process service", "op", "process wait", "err", err)
+				return
 			}
+			self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
+				Status: StatusStopped,
+				Log:    "",
+			})
 		}()
 		return stdout, nil
 	}()
 
 	if err != nil {
-		process.logs = append(process.logs, err.Error())
-		self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
+		process.SaveLog(err.Error())
+		self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 			Status: StatusError,
 			Log:    err.Error() + "222\n",
 		})
 		return false
 	}
 
-	if option.KillParams.CommandName != "" {
+	if option.StopCommand != "" {
 		go func() {
 			<-process.ctx.Done()
 			killCtx, killCancel := context.WithCancel(process.ctx)
 			defer func() {
 				killCancel()
 			}()
-			killCmd := exec.CommandContext(killCtx, option.KillParams.CommandName, option.KillParams.Args...)
+			cmdParams := function.SplitCommandArray(option.StartCommand)
+			killCmd := exec.CommandContext(killCtx, cmdParams[0], cmdParams[1:]...)
 			killCmd.Env = runEnv
+			killCmd.Dir = workDir
 			err = killCmd.Run()
 			if err != nil {
-				slog.Debug("process service", "op", "process kill", "err", err)
+				slog.Info("process service", "op", "process kill", "err", err)
 			}
 		}()
 	}
 
-	go func() {
-		scanner := bufio.NewScanner(out)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if !strings.HasSuffix(line, "\n") {
-				line = line + "\n"
-			}
-			process.SaveLog(line)
-			self.EventEmit(self.GetEventName(params.Name), &ProcessEventMessage{
-				Status: StatusRunning,
-				Log:    line,
-			})
+	self.processList.Store(name, process)
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasSuffix(line, "\n") {
+			line = line + "\n"
 		}
-		slog.Debug("process service read out close")
-	}()
+		process.SaveLog(line)
+		self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
+			Status: fmt.Sprintf("%s (%d)", StatusRunning, process.cmd.Process.Pid),
+			Log:    line,
+		})
+	}
+	slog.Info("process service read out close")
+
 	return true
+}
+
+func (self *ProcessService) Stop(name string) {
+	if v, ok := self.processList.LoadAndDelete(name); ok {
+		myProcess := v.(*Process)
+		slog.Info("process service stop", "process", myProcess.Name)
+		myProcess.Close()
+	}
 }
 
 func (self *ProcessService) EventEmit(eventName string, message *ProcessEventMessage) {
 	self.config.App.Event.Emit(eventName, message)
-	slog.Debug("process run", "event", eventName, "message", message)
+	slog.Info("process run", "event", eventName, "message", message)
 }
 
 func (self *ProcessService) GetEventName(processName string) string {
@@ -179,18 +196,19 @@ func (self *ProcessService) GetEventName(processName string) string {
 func (self *ProcessService) GetProcessStatus(name string) ProcessEventMessage {
 	if v, ok := self.processList.Load(name); ok {
 		myProcess := v.(*Process)
-		slog.Debug("process service run exists", "process", myProcess)
+		slog.Info("process service run exists")
+		status := StatusStopped
 		if myProcess.cmd != nil && myProcess.cmd.Process != nil {
-			status := ""
+			slog.Info("process service run exists", "error", myProcess.cmd.Err, "pid", myProcess.cmd.Process.Pid)
 			if myProcess.cmd.Process.Pid > 0 {
 				status = fmt.Sprintf("%s (%d)", StatusRunning, myProcess.cmd.Process.Pid)
 			} else {
 				status = myProcess.cmd.ProcessState.String()
 			}
-			return ProcessEventMessage{
-				Status: status,
-				Log:    v.(*Process).GetLog(),
-			}
+		}
+		return ProcessEventMessage{
+			Status: status,
+			Log:    v.(*Process).GetLog(),
 		}
 	}
 	return ProcessEventMessage{

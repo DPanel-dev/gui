@@ -13,10 +13,9 @@ type System struct {
 }
 
 type App struct {
-	RunParams  process.RunParams
-	RunOption  process.RunOption
-	KillParams process.RunParams
-	Setting    map[string]EnvironmentLabelItem
+	Name      string
+	RunOption process.RunOption
+	Setting   Setting
 }
 
 type AllConfig struct {
@@ -27,4 +26,9 @@ type AllConfig struct {
 type EnvironmentLabelItem struct {
 	ZhCN string
 	EnUS string
+}
+
+type Setting struct {
+	HomeUrl     string
+	Environment map[string]EnvironmentLabelItem
 }
