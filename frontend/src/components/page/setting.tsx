@@ -3,6 +3,7 @@ import IconSave from '@renderer/assets/save.svg'
 import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
+import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 
 export interface ConfigResult {
   env: {
@@ -19,6 +20,7 @@ export default function SettingPage() {
   const [reload, setReload] = useState(0)
   const toastRef = useRef<ToastRefType>(null)
   const [loading, setLoading] = useState(false)
+  const [appList, setAppList] = useState<App[] | null>()
 
   useEffect(() => {
     // window.api && window.api.runConfigLoad().then((res) => {
@@ -34,6 +36,49 @@ export default function SettingPage() {
     //     setLoading(false)
     //   }, 1000);
     // })
+    // setAppList([
+    //   {
+    //     "Name": "dpanel",
+    //     "RunOption": {
+    //       "AutoLaunch": true,
+    //       "WorkDir": "./",
+    //       "StartCommand": "./dpanel server:start",
+    //       "StopCommand": "",
+    //       "Environment": [
+    //         "APP_SERVER_PORT=8086",
+    //         "STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data"
+    //       ],
+    //       "LogMaxLine": 1000
+    //     },
+    //     "Setting": {
+    //       "HomeUrl": "http://127.0.0.1:${APP_SERVER_PORT}",
+    //       "Environment": {
+    //         "APP_SERVER_PORT": {
+    //           "ZhCN": "服务运行端口",
+    //           "EnUS": "Service running port"
+    //         },
+    //         "STORAGE_LOCAL_PATH": {
+    //           "ZhCN": "数据存储目录",
+    //           "EnUS": "Data storage directory"
+    //         }
+    //       }
+    //     }
+    //   }
+    // ])
+    SettingService.GetAll().then(res => {
+      if (res) {
+        res.Apps?.forEach(app => {
+          app.RunOption.Environment?.forEach(item => {
+            const pos = item.indexOf("=")
+            form.setValue(`environment[${app.Name}][${item.slice(0, pos)}]`, item.slice(pos + 1))
+          });
+        })
+        form.setValue("autoLaunch", res.System.AutoLaunch)
+        form.setValue("closeWindowHide", res.System.CloseWindowHide)
+        form.setValue("theme", res.System.Theme)
+      }
+      setAppList(res.Apps)
+    })
   }, [reload])
 
 
@@ -49,7 +94,7 @@ export default function SettingPage() {
         <div className='gap-4 flex'>
           <button className="btn rounded-xl">
             <IconFolderOpen className='w-4' />
-            数据目录
+            程序目录
           </button>
           <button className="btn rounded-xl btn-primary text-primary-content fill-primary-content" type="submit"
             form="setting-form">
@@ -64,15 +109,26 @@ export default function SettingPage() {
         if (loading) {
           return
         }
-        setLoading(true)
-        // window.api && await window.api.runConfigSave(data)
+        console.log(data);
+
+        //setLoading(true)
         setReload(reload + 1)
       })}>
-        <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
-          <legend className="fieldset-legend">运行端口: </legend>
-          <input type="number" className="input" {...form.register("env[APP_SERVER_PORT]")} />
-          <p className="label">配置后台服务运行端口, 端口被占用时无法启动。为空时使用随机空闲端口</p>
-        </fieldset>
+
+        {appList?.map((item, index) => {
+          return <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
+            <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
+            <fieldset className="fieldset rounded-box flex gap-5">
+              {item.Setting.Environment && Object.entries(item.Setting.Environment).map(([name, value]) => {
+                return <label className="floating-label mb-3" key={`label-${item.Name}-${name}`}>
+                  <span>{name}</span>
+                  <input type="text" {...form.register(`environment[${item.Name}][${name}]`)} placeholder={value.ZhCN} className="input w-xs" />
+                </label>
+              })}
+            </fieldset>
+            <p className="label">配置 {item.Name} 应用的运行环境变量</p>
+          </fieldset>
+        })}
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
           <legend className="fieldset-legend">开机自动启动: </legend>
           <input type="checkbox" className="toggle" {...form.register("autoLaunch")} />
@@ -82,11 +138,6 @@ export default function SettingPage() {
           <legend className="fieldset-legend">关闭窗口隐藏到托盘: </legend>
           <input type="checkbox" className="toggle" {...form.register("closeWindowHide")} />
           <p className="label">配置关闭窗口后退出程序还是隐藏至系统托盘</p>
-        </fieldset>
-        <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
-          <legend className="fieldset-legend">自动访问主界面: </legend>
-          <input type="checkbox" className="toggle" {...form.register("autoOpenAppServerUrl")} />
-          <p className="label">配置服务启动后是否自动跳转至浏览器主界面</p>
         </fieldset>
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4 filter">
           <legend className="fieldset-legend">默认皮肤: </legend>

@@ -11,15 +11,19 @@ export interface AllConfig {
 }
 
 export interface App {
-    "RunParams": process$0.RunParams;
+    "Name": string;
     "RunOption": process$0.RunOption;
-    "KillParams": process$0.RunParams;
-    "Setting": { [_: string]: EnvironmentLabelItem } | null;
+    "Setting": Setting;
 }
 
 export interface EnvironmentLabelItem {
     "ZhCN": string;
     "EnUS": string;
+}
+
+export interface Setting {
+    "HomeUrl": string;
+    "Environment": { [_: string]: EnvironmentLabelItem } | null;
 }
 
 export interface System {

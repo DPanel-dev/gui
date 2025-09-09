@@ -10,5 +10,6 @@ export type {
     AllConfig,
     App,
     EnvironmentLabelItem,
+    Setting,
     System
 } from "./models.js";

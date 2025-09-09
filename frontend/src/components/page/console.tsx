@@ -7,10 +7,11 @@ import IconSend from '@renderer/assets/send.svg'
 import IconStart from '@renderer/assets/start.svg'
 import { SearchAddon } from '@xterm/addon-search'
 import * as runtime from '@wailsio/runtime'
-import { runCommand } from '../../services/command'
+import { getEventName, runCommand, stopCommand } from '../../services/command'
 import { systemNotice } from '../../services/notice'
 import { useParams } from 'react-router'
 import { ProcessEventMessage, ProcessService } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
+import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 
 const TtyDefaultOption: ITerminalOptions = {
   convertEol: true,
@@ -34,8 +35,8 @@ export default function ConsolePage() {
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [status, setStatus] = useState<string>()
-  const [port, setPort] = useState(8086)
   const { id } = useParams();
+  const [appConfig, setAppConfig] = useState<App>()
 
   useEffect(() => {
     const container = containerRef.current
@@ -70,37 +71,15 @@ export default function ConsolePage() {
       }
       return true;
     })
-    //
-    // runtime.EventsOn("event-process", (status, log) => {
-    //   if (log) {
-    //     terminal.write(log)
-    //   }
-    //   if (status) {
-    //     setStatus(String(status.trim()))
-    //   }
-    // })
 
-    // window.api && window.api.runConfigLoad().then(res => {
-    //   const data = JSON.parse(res) as ConfigResult
-    //   if (data && data.env && data.env.APP_SERVER_PORT) {
-    //     setPort(data.env.APP_SERVER_PORT)
-    //   }
-    // })
+    terminalRef.current = terminal
+    fitAddonRef.current = fitAddon
 
-    // window.api && window.api.onProcessMessage((status, log) => {
-    //   if (log) {
-    //     terminal.write(log)
-    //   }
-    //   if (status) {
-    //     setStatus(String(status.trim()))
-    //   }
-    // })
-
-    // window.api && window.api.processLoad("dpanel").then(res => {
-    //   setStatus(String(res.status.trim()))
-    //   terminal.write(res.log)
-    // })
-    ProcessService.GetEventName(id).then((eventName: string) => {
+    SettingService.GetApp(id).then(res => {
+      console.log(res);
+      setAppConfig(res)
+      const eventName = getEventName(id)
+      runtime.Events.Off(eventName)
       runtime.Events.On(eventName, (e) => {
         const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
         if (message && message.Status) {
@@ -110,25 +89,25 @@ export default function ConsolePage() {
           terminal.write(message.Log)
         }
       })
-    })
 
-    ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-      if (message && message.Status) {
-        setStatus(String(message.Status.trim()))
-      }
-      if (message && message.Log) {
-        terminal.write(message.Log)
-      }
-    })
+      ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+        console.log(message);
 
-    terminalRef.current = terminal
-    fitAddonRef.current = fitAddon
+        if (message && message.Status) {
+          setStatus(String(message.Status.trim()))
+        }
+        if (message && message.Log) {
+          terminal.write(message.Log)
+        }
+      })
+    })
 
     return () => {
       console.log("events off all");
       runtime.Events.OffAll()
     }
   }, [id])
+
 
   useEffect(() => {
     resize()
@@ -159,16 +138,14 @@ export default function ConsolePage() {
     <div className='bg-base-300 rounded-box items-center no-animation p-5 m-5 flex'>
       <div className='prose w-80 mr-auto'>
         <h3 className='pl-5'>
-          {id} 控制台
+          {appConfig?.Name} 控制台
           <div className="badge badge-sm badge-soft badge-primary ml-2">{status}</div>
         </h3>
       </div>
       <div className="gap-0 mr-4  items-center">
-        <button disabled={status != "running"} className="btn rounded-xl btn-primary mr-4 fill-primary-content flex"
+        <button disabled={!status?.includes("running")} className="btn rounded-xl btn-primary mr-4 fill-primary-content"
           onClick={async () => {
-            // window.api.openUrl({
-            //   url: `http://127.0.0.1:${port}`
-            // })
+            appConfig && await runtime.Browser.OpenURL(appConfig.Setting.HomeUrl)
           }}
         >
           <IconSend className='w-4' />
@@ -176,27 +153,23 @@ export default function ConsolePage() {
         </button>
       </div>
       <div className='gap-4 flex'>
-        <button disabled={status == "running" || !id} className="btn join-item rounded-xl btn-success text-success-content fill-success-content" onClick={() => {
+        <button disabled={status?.includes("running") || !appConfig} className="btn join-item rounded-xl btn-success text-success-content fill-success-content" onClick={() => {
           id && runProcess(id)
         }}>
           <IconStart className='w-4' />
           启动
         </button>
-        <button className="btn rounded-xl btn-warning text-warning-content fill-warning-content" onClick={() => {
-          // window.api.processCtrl({
-          //   name: "dpanel",
-          //   ctrl: "restart",
-          // });
+        <button className="btn rounded-xl btn-warning text-warning-content fill-warning-content" onClick={async () => {
+          id && await stopCommand(id)
+          id && await runProcess(id)
         }}>
           <IconReload className='w-4' />
           重启
         </button>
-        <button disabled={status != "running"} className={`btn rounded-xl btn-error  text-error-content fill-error-content`} onClick={() => {
-          // window.api.processCtrl({
-          //   name: "dpanel",
-          //   ctrl: "stop",
-          // });
-        }}>
+        <button disabled={!status?.includes("running")} className={`btn rounded-xl btn-error  text-error-content fill-error-content`}
+          onClick={async () => {
+            id && stopCommand(id)
+          }}>
           <IconPause className='w-4' />
           停止
         </button>

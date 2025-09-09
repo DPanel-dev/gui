@@ -7,8 +7,6 @@ export {
 };
 
 export type {
-    EnvironmentItem,
     ProcessEventMessage,
-    RunOption,
-    RunParams
+    RunOption
 } from "./models.js";

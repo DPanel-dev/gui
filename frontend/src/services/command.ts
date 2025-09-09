@@ -5,7 +5,7 @@ import { SettingService } from "../../bindings/github.com/donknap/dpanel-gui/ser
 export async function runCommand(name: string): Promise<boolean> {
   try {
     const config = await SettingService.GetApp(name)
-    if (!config || config.RunParams.Name == "" || config.RunParams.CommandName == "") {
+    if (!config || config.Name == "" || config.RunOption.StartCommand == "") {
       await runtime.Events.Emit({
         name: await ProcessService.GetEventName(name),
         data: {
@@ -15,9 +15,8 @@ export async function runCommand(name: string): Promise<boolean> {
       })
       return false
     }
-    console.log(config);
 
-    const status = await ProcessService.Run(config.RunParams, config.RunOption)
+    const status = await ProcessService.Run(config.Name, config.RunOption)
     if (!status) {
       return false
     }
@@ -32,4 +31,12 @@ export async function runCommand(name: string): Promise<boolean> {
     return false
   }
   return true
+}
+
+export async function stopCommand(name: string) {
+  await ProcessService.Stop(name)
+}
+
+export function getEventName(name: string): string {
+  return `db-process-${name}`
 }

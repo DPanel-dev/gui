@@ -19,7 +19,7 @@ export default function Menu() {
   useEffect(() => {
     logger.LogService.Info("我是前端来测试的")
 
-    SettingService.Get().then(res => {
+    SettingService.GetAll().then(res => {
       if (res.Apps) {
         setApp(res.Apps)
       }
@@ -37,9 +37,9 @@ export default function Menu() {
   return <div className='h-full bg-base-300 overflow-hidden' style={{ flex: '0 0 auto' }}>
     <ul className="menu p-1 mr-0.5">
       {app?.map(item => {
-        return <li className='items-center' key={item.RunParams.Name}>
-          <Link to={`/console/${item.RunParams.Name}`} className={`p-4 font-semibold text-xl shadow-md ${isActive(`/console/${item.RunParams.Name}`) ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
-            {getTextHead(item.RunParams.Name, 2)}
+        return <li className='items-center' key={item.Name}>
+          <Link to={`/console/${item.Name}`} className={`p-4 font-semibold text-xl shadow-md ${isActive(`/console/${item.Name}`) ? " menu-active fill-neutral-content" : "fill-base-content"}`}>
+            {getTextHead(item.Name, 2)}
           </Link>
         </li>
       })}
