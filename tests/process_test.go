@@ -3,15 +3,18 @@ package tests
 import (
 	"bufio"
 	"context"
+	_ "embed"
 	"fmt"
+	"github.com/joho/godotenv"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/joho/godotenv"
 )
+
+//go:embed appicon.png
+var iconBytes []byte
 
 func TestCommand(t *testing.T) {
 	path := "D:\\Workspace\\dpanel-gui-wails-v3\\bin\\nginx-1.29.1\\nginx.exe"
@@ -31,6 +34,7 @@ func TestCommand(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
+	fmt.Printf("TestEnv %v \n", iconBytes)
 	appEnv := []string{
 		"DP_WORK_DIR=/User/test",
 		"APP_SERVER_PORT=8086",

@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"embed"
-	_ "embed"
+	"fmt"
+	"github.com/wailsapp/wails/v3/pkg/events"
 	"log"
 	"log/slog"
 	"os"
@@ -88,7 +89,8 @@ func main() {
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:      "main",
 		Title:     "DPanel Desktop",
 		Width:     1200,
 		Height:    800,
@@ -116,6 +118,41 @@ func main() {
 		}
 	}()
 
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		mainWindow.Minimise()
+		event.Cancel()
+	})
+
+	icon, err := assets.ReadFile("frontend/dist/icon.png")
+	if err != nil {
+		panic(err)
+	}
+	trayMenu := application.NewMenu()
+	viewMenu := trayMenu.Add("Go to the Dashboard")
+	viewMenu.OnClick(func(c *application.Context) {
+		mainWindow.Show()
+		mainWindow.Restore()
+		mainWindow.Focus()
+		// 这里需要一直等待到主窗口显示出来才可以
+		for !mainWindow.IsVisible() {
+			fmt.Printf("go to dasboard %v \n", mainWindow.IsVisible())
+			time.Sleep(time.Millisecond * 100)
+		}
+		app.Show()
+	})
+	trayMenu.AddSeparator()
+	trayMenu.Add("Documentation").OnClick(func(c *application.Context) {
+		_ = app.Browser.OpenURL("https://dpanel.cc")
+	})
+	trayMenu.Add("Repository").OnClick(func(c *application.Context) {
+		_ = app.Browser.OpenURL("https://github.com/donknap/dpanel")
+	})
+	trayMenu.AddSeparator()
+	trayMenu.AddRole(application.Quit)
+
+	systray := app.SystemTray.New()
+	systray.SetTemplateIcon(icon)
+	systray.SetMenu(trayMenu)
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()
 

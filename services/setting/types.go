@@ -14,9 +14,9 @@ type System struct {
 
 type App struct {
 	Name      string
-	HomeUrl   string
+	HomeUrl   string `json:",omitempty"`
 	RunOption process.RunOption
-	Setting   Setting
+	Setting   Setting `json:",omitempty"`
 }
 
 type AllConfig struct {
@@ -24,11 +24,16 @@ type AllConfig struct {
 	Apps   []App
 }
 
-type EnvironmentLabelItem struct {
-	ZhCN string
-	EnUS string
+type EnvironmentItem struct {
+	Description  string
+	DefaultValue string `json:",omitempty"`
 }
 
 type Setting struct {
-	Environment map[string]EnvironmentLabelItem
+	Environment map[string]EnvironmentItem
+}
+
+type FormAppEnvironment []struct {
+	Name        string   `json:"name"`
+	Environment []string `json:"environment"`
 }

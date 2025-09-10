@@ -35,7 +35,7 @@ type ProcessService struct {
 func (self *ProcessService) ServiceShutdown() error {
 	self.processList.Range(func(key, value interface{}) bool {
 		if v, ok := value.(*Process); ok && v.ctxCancel != nil {
-			slog.Info("process service shutdown", v)
+			slog.Info("process service shutdown", "process", v)
 			v.Close()
 		}
 		return true
@@ -219,7 +219,7 @@ func (self *ProcessService) GetProcessStatus(name string) ProcessEventMessage {
 		slog.Info("process service run exists")
 		status := StatusStopped
 		if myProcess.cmd != nil && myProcess.cmd.Process != nil {
-			slog.Info("process service run exists", "error", myProcess.cmd.Err, "pid", myProcess.cmd.Process.Pid)
+			slog.Info("process service run process", "pid", myProcess.cmd.Process.Pid, "error", myProcess.cmd.Err)
 			if myProcess.cmd.Process.Pid > 0 {
 				status = fmt.Sprintf("%s (%d)", StatusRunning, myProcess.cmd.Process.Pid)
 			} else {
