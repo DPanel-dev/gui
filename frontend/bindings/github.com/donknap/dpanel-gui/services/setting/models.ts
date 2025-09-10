@@ -12,6 +12,7 @@ export interface AllConfig {
 
 export interface App {
     "Name": string;
+    "HomeUrl": string;
     "RunOption": process$0.RunOption;
     "Setting": Setting;
 }
@@ -22,7 +23,6 @@ export interface EnvironmentLabelItem {
 }
 
 export interface Setting {
-    "HomeUrl": string;
     "Environment": { [_: string]: EnvironmentLabelItem } | null;
 }
 

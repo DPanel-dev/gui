@@ -38,5 +38,5 @@ export async function stopCommand(name: string) {
 }
 
 export function getEventName(name: string): string {
-  return `db-process-${name}`
+  return `dp-process-${name}`
 }

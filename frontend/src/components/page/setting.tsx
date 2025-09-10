@@ -3,7 +3,12 @@ import IconSave from '@renderer/assets/save.svg'
 import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
-import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
+import {
+    AllConfig,
+    App,
+    EnvironmentLabelItem,
+    SettingService
+} from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 
 export interface ConfigResult {
   env: {
@@ -65,10 +70,10 @@ export default function SettingPage() {
     //     }
     //   }
     // ])
-    SettingService.GetAll().then(res => {
+    SettingService.GetAll().then((res:AllConfig) => {
       if (res) {
-        res.Apps?.forEach(app => {
-          app.RunOption.Environment?.forEach(item => {
+        res.Apps?.forEach((app:App) => {
+          app.RunOption.Environment?.forEach((item:string) => {
             const pos = item.indexOf("=")
             form.setValue(`environment[${app.Name}][${item.slice(0, pos)}]`, item.slice(pos + 1))
           });
@@ -114,12 +119,19 @@ export default function SettingPage() {
         //setLoading(true)
         setReload(reload + 1)
       })}>
-
+          <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
+              <legend className="fieldset-legend">预设环境变量: </legend>
+              <div className=" flex gap-3">
+                  <h5 className="text-xs font-semibold">
+                      当前程序根目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
+                  </h5>
+              </div>
+          </fieldset>
         {appList?.map((item, index) => {
           return <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
             <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
             <fieldset className="fieldset rounded-box flex gap-5">
-              {item.Setting.Environment && Object.entries(item.Setting.Environment).map(([name, value]) => {
+              {item.Setting.Environment && Object.entries(item.Setting.Environment).map(([name, value]:[string, EnvironmentLabelItem]) => {
                 return <label className="floating-label mb-3" key={`label-${item.Name}-${name}`}>
                   <span>{name}</span>
                   <input type="text" {...form.register(`environment[${item.Name}][${name}]`)} placeholder={value.ZhCN} className="input w-xs" />

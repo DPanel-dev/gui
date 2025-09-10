@@ -78,28 +78,31 @@ export default function ConsolePage() {
     SettingService.GetApp(id).then(res => {
       console.log(res);
       setAppConfig(res)
-      const eventName = getEventName(id)
-      runtime.Events.Off(eventName)
-      runtime.Events.On(eventName, (e) => {
-        const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
-        if (message && message.Status) {
-          setStatus(String(message.Status.trim()))
-        }
-        if (message && message.Log) {
-          terminal.write(message.Log)
-        }
-      })
+    })
 
-      ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-        console.log(message);
+    const eventName = getEventName(id)
+    console.log(eventName)
+    runtime.Events.Off(eventName)
+    runtime.Events.On(eventName, (e) => {
+      console.log(e)
+      const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
+      if (message && message.Status) {
+        setStatus(String(message.Status.trim()))
+      }
+      if (message && message.Log) {
+        terminal.write(message.Log)
+      }
+    })
 
-        if (message && message.Status) {
-          setStatus(String(message.Status.trim()))
-        }
-        if (message && message.Log) {
-          terminal.write(message.Log)
-        }
-      })
+    ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+      console.log("get process status", message);
+
+      if (message && message.Status) {
+        setStatus(String(message.Status.trim()))
+      }
+      if (message && message.Log) {
+        terminal.write(message.Log)
+      }
     })
 
     return () => {
@@ -145,7 +148,7 @@ export default function ConsolePage() {
       <div className="gap-0 mr-4  items-center">
         <button disabled={!status?.includes("running")} className="btn rounded-xl btn-primary mr-4 fill-primary-content"
           onClick={async () => {
-            appConfig && await runtime.Browser.OpenURL(appConfig.Setting.HomeUrl)
+            appConfig && await runtime.Browser.OpenURL(appConfig.HomeUrl)
           }}
         >
           <IconSend className='w-4' />
@@ -166,7 +169,8 @@ export default function ConsolePage() {
           <IconReload className='w-4' />
           重启
         </button>
-        <button disabled={!status?.includes("running")} className={`btn rounded-xl btn-error  text-error-content fill-error-content`}
+        {/*disabled={!status?.includes("running")}*/}
+        <button className={`btn rounded-xl btn-error  text-error-content fill-error-content`}
           onClick={async () => {
             id && stopCommand(id)
           }}>
