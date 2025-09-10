@@ -23,7 +23,7 @@ func PluckArrayItemWalk[T interface{}](v []T, walk func(item T) bool) (T, bool) 
 	return result, false
 }
 
-func SplitCommandArray(cmd string) []string {
+func SplitCommandArray(cmd string) (string, []string) {
 	result := make([]string, 0)
 	field := ""
 	ignoreSpace := false
@@ -42,9 +42,8 @@ func SplitCommandArray(cmd string) []string {
 	if field != "" {
 		result = append(result, field)
 	}
-	// 补齐 args 避免读取 Nil
-	if len(result) < 2 {
-		result = append(result, "")
+	if len(result) == 1 {
+		return result[0], make([]string, 0)
 	}
-	return result
+	return result[0], result[1:]
 }

@@ -14,6 +14,7 @@ type System struct {
 
 type App struct {
 	Name      string
+	HomeUrl   string
 	RunOption process.RunOption
 	Setting   Setting
 }
@@ -29,6 +30,5 @@ type EnvironmentLabelItem struct {
 }
 
 type Setting struct {
-	HomeUrl     string
 	Environment map[string]EnvironmentLabelItem
 }

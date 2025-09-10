@@ -3,15 +3,16 @@ package setting
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/donknap/dpanel-gui/function"
 	"github.com/donknap/dpanel-gui/services/process"
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
-	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 var defaultConfig = AllConfig{
@@ -22,7 +23,8 @@ var defaultConfig = AllConfig{
 	},
 	Apps: []App{
 		{
-			Name: "dpanel",
+			Name:    "dpanel",
+			HomeUrl: "http://127.0.0.1:${APP_SERVER_PORT}",
 			RunOption: process.RunOption{
 				AutoLaunch:   true,
 				WorkDir:      "./",
@@ -35,7 +37,6 @@ var defaultConfig = AllConfig{
 				LogMaxLine: 1000,
 			},
 			Setting: Setting{
-				HomeUrl: "http://127.0.0.1:${APP_SERVER_PORT}",
 				Environment: map[string]EnvironmentLabelItem{
 					"APP_SERVER_PORT": {
 						ZhCN: "服务运行端口",
@@ -114,7 +115,7 @@ func (self *SettingService) GetApp(name string) App {
 		return false
 	}); ok {
 		if appEnv, err := godotenv.Unmarshal(strings.Join(v.RunOption.Environment, "\n")); err == nil {
-			v.Setting.HomeUrl = os.Expand(v.Setting.HomeUrl, func(s string) string {
+			v.HomeUrl = os.Expand(v.HomeUrl, func(s string) string {
 				return appEnv[s]
 			})
 		}

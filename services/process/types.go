@@ -3,9 +3,11 @@ package process
 import (
 	"context"
 	"log/slog"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -26,9 +28,10 @@ type Process struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	// FIFO 环形缓冲区
-	logs []string
-	max  int
-	mu   sync.Mutex
+	logs        []string
+	max         int
+	mu          sync.Mutex
+	StopHandler func()
 }
 
 func (self *Process) SaveLog(line string) {
@@ -45,10 +48,21 @@ func (self *Process) GetLog() string {
 }
 
 func (self *Process) Close() {
+	if self.StopHandler != nil {
+		self.StopHandler()
+	}
 	if self.cmd != nil && self.cmd.Process != nil {
 		err := self.cmd.Process.Kill()
 		if err != nil {
-			slog.Info("process service", "process kill err", err)
+			slog.Info("process service process kill ", "err", err)
+		}
+		err = self.cmd.Process.Signal(syscall.SIGTERM)
+		if err != nil {
+			slog.Info("process service process signal ", "err", err)
+		}
+		err = self.cmd.Process.Signal(os.Interrupt)
+		if err != nil {
+			slog.Info("process service process signal", "err", err)
 		}
 		self.cmd = nil
 	}

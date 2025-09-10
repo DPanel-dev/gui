@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/joho/godotenv"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/joho/godotenv"
 )
 
 func TestCommand(t *testing.T) {
@@ -32,7 +33,7 @@ func TestCommand(t *testing.T) {
 func TestEnv(t *testing.T) {
 	appEnv := []string{
 		"DP_WORK_DIR=/User/test",
-		"APP_SERVER_PORT1=8086",
+		"APP_SERVER_PORT=8086",
 		"STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
 	}
 	//runEnv := os.Environ()
@@ -51,6 +52,19 @@ func TestEnv(t *testing.T) {
 		return appEnvMap[s]
 	}))
 	fmt.Printf("TestEnv %v \n", a)
+
+	//systemEnv := os.Environ()
+	//fmt.Printf("TestEnv %v \n", systemEnv)
+	testEnv := `
+DP_WORK_DIR=C:\\User
+TEST=${DB_WORK_DIR}\\test
+CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
+`
+	appEnvMap1, err := godotenv.Unmarshal(testEnv)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("TestEnv %v \n", appEnvMap1)
 }
 
 func TestRunProcess(t *testing.T) {

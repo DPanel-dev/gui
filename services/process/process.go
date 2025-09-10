@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log/slog"
 	"os"
@@ -12,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/donknap/dpanel-gui/function"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -33,8 +35,8 @@ type ProcessService struct {
 func (self *ProcessService) ServiceShutdown() error {
 	self.processList.Range(func(key, value interface{}) bool {
 		if v, ok := value.(*Process); ok && v.ctxCancel != nil {
-			slog.Info("process service", "shutdown", v)
-			v.ctxCancel()
+			slog.Info("process service shutdown", v)
+			v.Close()
 		}
 		return true
 	})
@@ -59,6 +61,9 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 	}
 	slog.Info("process service", "name", name, "option", option)
 
+	if option.LogMaxLine <= 0 {
+		option.LogMaxLine = 500
+	}
 	process := &Process{
 		Name: name,
 		max:  option.LogMaxLine,
@@ -68,7 +73,7 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 
 	defer func() {
 		slog.Info("process service defer", "process", process)
-		// 这里退出后，表示命令已经执行完成，需要重重置掉 cmd 对象，但是还需要保留执行结果，不能把 process 对象删除
+		// 这里退出后，表示命令还未开始或是已经执行完成，需要重重置掉 cmd 对象，但是还需要保留执行结果，不能把 process 对象删除
 		process.Close()
 		// 无论如何都存储起来，需要收集错误及信息
 		self.processList.Store(name, process)
@@ -81,28 +86,51 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 		workDir = filepath.Join(self.config.WorkDir, option.WorkDir)
 	}
 
-	runEnv := os.Environ()
+	runEnv := make([]string, 0)
 	runEnv = append(runEnv, "DP_WORK_DIR="+workDir)
 	runEnv = append(runEnv, option.Environment...)
 	appEnvMap, err := godotenv.Unmarshal(strings.Join(runEnv, "\n"))
+	slog.Debug("process service parse env", "runEnv", runEnv)
 	if err != nil {
 		process.SaveLog(err.Error())
 		self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 			Status: StatusError,
-			Log:    err.Error() + "\n",
+			Log:    err.Error() + "333\n",
 		})
 		return false
 	}
 	runEnv = function.PluckMapWalkArray(appEnvMap, func(name string, value string) (string, bool) {
 		return fmt.Sprintf("%s=%s", name, value), true
 	})
+	// 最后附加上系统环境变量
+	runEnv = append(runEnv, os.Environ()...)
+
+	if option.StopCommand != "" {
+		process.StopHandler = func() {
+			killCtx, killCancel := context.WithTimeout(context.Background(), time.Second*20)
+			defer func() {
+				killCancel()
+			}()
+			slog.Info("process service start kill", "err", err)
+			cmdName, cmdArgs := function.SplitCommandArray(option.StopCommand)
+			killCmd := exec.CommandContext(killCtx, cmdName, cmdArgs...)
+			killCmd.Env = runEnv
+			killCmd.Dir = workDir
+			killOut, err := killCmd.CombinedOutput()
+			if err != nil {
+				slog.Info("process service process kill", "err", err)
+			}
+			slog.Info("process service kill out", "out", string(killOut))
+		}
+	}
+
 	out, err := func() (io.ReadCloser, error) {
-		cmdParams := function.SplitCommandArray(option.StartCommand)
-		process.cmd = exec.CommandContext(process.ctx, cmdParams[0], cmdParams[1:]...)
+		cmdName, cmdArgs := function.SplitCommandArray(option.StartCommand)
+		process.cmd = exec.CommandContext(process.ctx, cmdName, cmdArgs...)
 		process.cmd.Dir = workDir
 		process.cmd.Env = runEnv
 
-		slog.Info("process service", "op", "process cmd", "cmd", cmdParams, "env", process.cmd.Env)
+		slog.Info("process service run params", "name", cmdName, "args", cmdArgs, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()
 		if err != nil {
@@ -112,13 +140,14 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 		if err = process.cmd.Start(); err != nil {
 			return nil, err
 		}
+
 		go func() {
 			err := process.cmd.Wait()
 			if err != nil {
 				process.SaveLog(err.Error())
 				self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 					Status: StatusError,
-					Log:    err.Error() + "333\n",
+					Log:    err.Error() + "222\n",
 				})
 				slog.Info("process service", "op", "process wait", "err", err)
 				return
@@ -135,30 +164,17 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 		process.SaveLog(err.Error())
 		self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 			Status: StatusError,
-			Log:    err.Error() + "222\n",
+			Log:    err.Error() + "111\n",
 		})
 		return false
 	}
 
-	if option.StopCommand != "" {
-		go func() {
-			<-process.ctx.Done()
-			killCtx, killCancel := context.WithCancel(process.ctx)
-			defer func() {
-				killCancel()
-			}()
-			cmdParams := function.SplitCommandArray(option.StartCommand)
-			killCmd := exec.CommandContext(killCtx, cmdParams[0], cmdParams[1:]...)
-			killCmd.Env = runEnv
-			killCmd.Dir = workDir
-			err = killCmd.Run()
-			if err != nil {
-				slog.Info("process service", "op", "process kill", "err", err)
-			}
-		}()
-	}
-
 	self.processList.Store(name, process)
+	self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
+		Status: fmt.Sprintf("%s (%d)", StatusRunning, process.cmd.Process.Pid),
+		Log:    "Running.... \n",
+	})
+
 	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -171,8 +187,12 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 			Log:    line,
 		})
 	}
-	slog.Info("process service read out close")
 
+	self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
+		Status: StatusStopped,
+		Log:    "",
+	})
+	slog.Info("process service read out close")
 	return true
 }
 
