@@ -4,13 +4,14 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"github.com/wailsapp/wails/v3/pkg/events"
 	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/donknap/dpanel-gui/services/process"
 	"github.com/donknap/dpanel-gui/services/setting"
@@ -119,7 +120,13 @@ func main() {
 	}()
 
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		mainWindow.Minimise()
+		//mainWindow.Minimise()
+		if runtime.GOOS == "windows" {
+			app.Hide()
+		} else {
+			//@todo Mac 系统隐藏窗口后会报错
+			mainWindow.Minimise()
+		}
 		event.Cancel()
 	})
 

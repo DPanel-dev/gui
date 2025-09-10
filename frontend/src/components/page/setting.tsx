@@ -187,7 +187,7 @@ export default function SettingPage() {
           </div>
         </fieldset>
         {config?.Apps?.map((item, index) => {
-          return <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
+          return item.Setting?.Environment && <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
             <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
             <fieldset className="fieldset rounded-box flex gap-5">
               {item.Setting?.Environment && Object.entries(item.Setting.Environment).map(([name, value]: [string, EnvironmentItem]) => {
