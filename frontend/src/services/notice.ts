@@ -11,3 +11,10 @@ export async function systemNotice(...message: string[]) {
     categoryId: "dpanel-desktop",
   })
 }
+
+export async function systemError(...message: string[]) {
+  runtime.Dialogs.Error({
+    Title: "系统信息",
+    Message: message.join(" ")
+  })
+}

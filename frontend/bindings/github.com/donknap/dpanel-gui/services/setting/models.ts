@@ -12,18 +12,20 @@ export interface AllConfig {
 
 export interface App {
     "Name": string;
-    "HomeUrl": string;
+    "HomeUrl"?: string;
     "RunOption": process$0.RunOption;
-    "Setting": Setting;
+    "Setting"?: Setting;
 }
 
-export interface EnvironmentLabelItem {
-    "ZhCN": string;
-    "EnUS": string;
+export interface EnvironmentItem {
+    "Description": string;
+    "DefaultValue"?: string;
 }
+
+export type FormAppEnvironment = {"name": string, "environment": string[] | null}[] | null;
 
 export interface Setting {
-    "Environment": { [_: string]: EnvironmentLabelItem } | null;
+    "Environment": { [_: string]: EnvironmentItem } | null;
 }
 
 export interface System {

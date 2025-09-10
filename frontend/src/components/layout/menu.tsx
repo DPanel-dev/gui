@@ -1,29 +1,87 @@
 import { useEffect, useState } from 'react'
-import IconConsole from '@renderer/assets/console.svg'
 import IconSetting from '@renderer/assets/setting.svg'
 import { Link, useLocation } from 'react-router'
-import IconHome from '@renderer/assets/home.svg'
+import IconQuestion from '@renderer/assets/question-circle-fill.svg'
 import IconGithub from '@renderer/assets/github.svg'
 import IconThemeDefault from '@renderer/assets/theme-default.svg'
 import IconThemeDark from '@renderer/assets/theme-dark.svg'
-import { darkThemeName, lightThemeName } from '../../types/type'
+import { darkThemeName, EventSystemTheme, lightThemeName } from '../../types/type'
 import * as runtime from '@wailsio/runtime'
-import * as logger from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/log'
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 import { getTextHead } from '../../services/utils'
+import { WailsEvent } from '@wailsio/runtime/types/events'
 
 export default function Menu() {
   const location = useLocation();
   const [theme, setTheme] = useState("light")
   const [app, setApp] = useState<App[]>()
+
   useEffect(() => {
-    logger.LogService.Info("我是前端来测试的")
+    // setApp([
+    //   {
+    //     "Name": "dpanel",
+    //     "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //     "RunOption": {
+    //       "AutoLaunch": true,
+    //       "WorkDir": "./",
+    //       "StartCommand": "./dpanel server:start",
+    //       "StopCommand": "",
+    //       "Environment": [
+    //         "APP_SERVER_PORT=8086",
+    //         "STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
+    //         "HOME_URL=http://127.0.0.1"
+    //       ],
+    //       "LogMaxLine": 1000
+    //     },
+    //     "Setting": {
+    //       "Environment": {
+    //         "APP_SERVER_PORT": {
+    //           "Description": "服务运行端口"
+    //         },
+    //         "HOME_URL": {
+    //           "Description": "访问地址"
+    //         },
+    //         "STORAGE_LOCAL_PATH": {
+    //           "Description": "数据存储目录"
+    //         }
+    //       }
+    //     }
+    //   },
+    //   {
+    //     "Name": "nginx",
+    //     "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //     "RunOption": {
+    //       "AutoLaunch": false,
+    //       "WorkDir": "./",
+    //       "StartCommand": "./dpanel server:start",
+    //       "StopCommand": "",
+    //       "Environment": [
+    //         "APP_SERVER_PORT=8086",
+    //       ],
+    //       "LogMaxLine": 1000
+    //     },
+    //     "Setting": {
+    //       "Environment": {
+    //         "APP_SERVER_PORT": {
+    //           "Description": "服务运行端口"
+    //         },
+    //       }
+    //     }
+    //   }
+    // ])
 
     SettingService.GetAll().then(res => {
       if (res.Apps) {
         setApp(res.Apps)
+        setTheme(res.System.Theme)
       }
     })
+
+    runtime.Events.Off(EventSystemTheme)
+    runtime.Events.On(EventSystemTheme, (res: WailsEvent) => {
+      setTheme(res.data)
+    })
+
   }, [])
 
   useEffect(() => {
@@ -62,16 +120,16 @@ export default function Menu() {
         </label>
       </li>
       <li className='mt-5'></li>
-      <li className='items-center' onClick={async () => {
-        await runtime.Browser.OpenURL("https://dpanel.cc")
+      <li className='items-center cursor-pointer' onClick={async () => {
+        await runtime.Browser.OpenURL("https://dpanel.cc/manual/system-desktop")
       }}>
         <div
           className="p-4 fill-base-content"
         >
-          <IconHome />
+          <IconQuestion />
         </div>
       </li>
-      <li className='items-center' onClick={async () => {
+      <li className='items-center cursor-pointer' onClick={async () => {
         await runtime.Browser.OpenURL("https://github.com/donknap/dpanel")
       }}>
         <div

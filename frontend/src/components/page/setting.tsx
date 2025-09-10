@@ -4,11 +4,13 @@ import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
 import {
-    AllConfig,
-    App,
-    EnvironmentLabelItem,
-    SettingService
+  AllConfig,
+  App,
+  EnvironmentItem,
+  SettingService
 } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
+import * as runtime from '@wailsio/runtime'
+import { EventSystemTheme } from '../../types/type'
 
 export interface ConfigResult {
   env: {
@@ -21,70 +23,98 @@ export interface ConfigResult {
 }
 
 export default function SettingPage() {
-  const form = useForm({})
+  const form = useForm<{
+    autoLaunch: boolean
+    closeWindowHide: boolean
+    theme: string,
+    setting: {
+      environment: Record<string, Record<string, string>>
+    }
+  }>({})
   const [reload, setReload] = useState(0)
   const toastRef = useRef<ToastRefType>(null)
   const [loading, setLoading] = useState(false)
-  const [appList, setAppList] = useState<App[] | null>()
+  const [config, setConfig] = useState<AllConfig | null>()
 
   useEffect(() => {
-    // window.api && window.api.runConfigLoad().then((res) => {
-    //   const config = JSON.parse(res) as ConfigResult
-    //   if (config) {
-    //     form.setValue("env[APP_SERVER_PORT]", config?.env.APP_SERVER_PORT)
-    //     form.setValue("autoLaunch", config?.autoLaunch)
-    //     form.setValue("closeWindowHide", config?.closeWindowHide)
-    //     form.setValue("autoOpenAppServerUrl", config?.autoOpenAppServerUrl)
-    //     form.setValue("theme", config?.theme)
-    //   }
-    //   setTimeout(() => {
-    //     setLoading(false)
-    //   }, 1000);
-    // })
-    // setAppList([
-    //   {
-    //     "Name": "dpanel",
-    //     "RunOption": {
-    //       "AutoLaunch": true,
-    //       "WorkDir": "./",
-    //       "StartCommand": "./dpanel server:start",
-    //       "StopCommand": "",
-    //       "Environment": [
-    //         "APP_SERVER_PORT=8086",
-    //         "STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data"
-    //       ],
-    //       "LogMaxLine": 1000
+    // setConfig({
+    //   "System": {
+    //     "AutoLaunch": false,
+    //     "CloseWindowHide": true,
+    //     "Theme": "light"
+    //   },
+    //   "Apps": [
+    //     {
+    //       "Name": "dpanel",
+    //       "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //       "RunOption": {
+    //         "AutoLaunch": true,
+    //         "WorkDir": "./",
+    //         "StartCommand": "./dpanel server:start",
+    //         "StopCommand": "",
+    //         "Environment": [
+    //           "APP_SERVER_PORT=8086",
+    //           "STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
+    //           "HOME_URL=http://127.0.0.1"
+    //         ],
+    //         "LogMaxLine": 1000
+    //       },
+    //       "Setting": {
+    //         "Environment": {
+    //           "APP_SERVER_PORT": {
+    //             "Description": "服务运行端口"
+    //           },
+    //           "HOME_URL": {
+    //             "Description": "访问地址"
+    //           },
+    //           "STORAGE_LOCAL_PATH": {
+    //             "Description": "数据存储目录"
+    //           }
+    //         }
+    //       }
     //     },
-    //     "Setting": {
-    //       "HomeUrl": "http://127.0.0.1:${APP_SERVER_PORT}",
-    //       "Environment": {
-    //         "APP_SERVER_PORT": {
-    //           "ZhCN": "服务运行端口",
-    //           "EnUS": "Service running port"
-    //         },
-    //         "STORAGE_LOCAL_PATH": {
-    //           "ZhCN": "数据存储目录",
-    //           "EnUS": "Data storage directory"
+    //     {
+    //       "Name": "nginx",
+    //       "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //       "RunOption": {
+    //         "AutoLaunch": false,
+    //         "WorkDir": "./",
+    //         "StartCommand": "./dpanel server:start",
+    //         "StopCommand": "",
+    //         "Environment": [
+    //           "APP_SERVER_PORT=8086",
+    //         ],
+    //         "LogMaxLine": 1000
+    //       },
+    //       "Setting": {
+    //         "Environment": {
+    //           "APP_SERVER_PORT": {
+    //             "Description": "服务运行端口"
+    //           },
     //         }
     //       }
     //     }
-    //   }
-    // ])
-    SettingService.GetAll().then((res:AllConfig) => {
-      if (res) {
-        res.Apps?.forEach((app:App) => {
-          app.RunOption.Environment?.forEach((item:string) => {
-            const pos = item.indexOf("=")
-            form.setValue(`environment[${app.Name}][${item.slice(0, pos)}]`, item.slice(pos + 1))
-          });
-        })
-        form.setValue("autoLaunch", res.System.AutoLaunch)
-        form.setValue("closeWindowHide", res.System.CloseWindowHide)
-        form.setValue("theme", res.System.Theme)
-      }
-      setAppList(res.Apps)
+    //   ]
+    // })
+
+    SettingService.GetAll().then((res: AllConfig) => {
+      res && setConfig(res)
     })
   }, [reload])
+
+  useEffect(() => {
+    if (config) {
+      config.Apps?.forEach((app: App) => {
+        app.RunOption?.Environment?.forEach((item: string) => {
+          const pos = item.indexOf("=")
+          form.setValue(`setting.environment.${app.Name}.${item.slice(0, pos)}`, item.slice(pos + 1))
+        });
+      })
+      form.setValue("autoLaunch", config.System.AutoLaunch)
+      form.setValue("closeWindowHide", config.System.CloseWindowHide)
+      form.setValue("theme", config.System.Theme)
+    }
+  }, [config])
 
 
   return <div className='flex-1 flex flex-col'>
@@ -97,7 +127,9 @@ export default function SettingPage() {
       </div>
       <div className="join gap-0 mr-4  items-center">
         <div className='gap-4 flex'>
-          <button className="btn rounded-xl">
+          <button className="btn rounded-xl" onClick={async () => {
+            await SettingService.OpenHomeFolder()
+          }}>
             <IconFolderOpen className='w-4' />
             程序目录
           </button>
@@ -110,31 +142,58 @@ export default function SettingPage() {
       </div>
     </div>
     <div className='bg-base-300 rounded-box border-base-300 border-solid border-10 m-5 mt-0 flex flex-col overflow-y-auto'>
-      <form id="setting-form" onSubmit={form.handleSubmit(async (data) => {
+      <form id="setting-form" onSubmit={form.handleSubmit(async (formData) => {
         if (loading) {
           return
         }
-        console.log(data);
+        setLoading(true)
 
-        //setLoading(true)
+        try {
+          await SettingService.SaveSystem({
+            AutoLaunch: formData.autoLaunch,
+            CloseWindowHide: formData.closeWindowHide,
+            Theme: formData.theme,
+          })
+
+          await SettingService.SaveAppEnvironment(formData.setting.environment && Object.entries(formData.setting.environment).map(([name, item]) => {
+            return {
+              name: name,
+              environment: Object.entries(item).map(([name, value]) => {
+                return `${name}=${value}`
+              })
+            }
+          }))
+
+          if (formData.theme) {
+            runtime.Events.Emit({
+              name: EventSystemTheme,
+              data: formData.theme
+            })
+          }
+        } catch (e) {
+          setLoading(false)
+        } finally {
+          setLoading(false)
+        }
+
         setReload(reload + 1)
       })}>
-          <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">预设环境变量: </legend>
-              <div className=" flex gap-3">
-                  <h5 className="text-xs font-semibold">
-                      当前程序根目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
-                  </h5>
-              </div>
-          </fieldset>
-        {appList?.map((item, index) => {
+        <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
+          <legend className="fieldset-legend">预设环境变量: </legend>
+          <div className=" flex gap-3">
+            <h5 className="text-xs font-semibold">
+              当前程序根目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
+            </h5>
+          </div>
+        </fieldset>
+        {config?.Apps?.map((item, index) => {
           return <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
             <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
             <fieldset className="fieldset rounded-box flex gap-5">
-              {item.Setting.Environment && Object.entries(item.Setting.Environment).map(([name, value]:[string, EnvironmentLabelItem]) => {
-                return <label className="floating-label mb-3" key={`label-${item.Name}-${name}`}>
+              {item.Setting?.Environment && Object.entries(item.Setting.Environment).map(([name, value]: [string, EnvironmentItem]) => {
+                return <label className="floating-label mb-3 tooltip" data-tip={value.Description} key={`label-${item.Name}-${name}`}>
                   <span>{name}</span>
-                  <input type="text" {...form.register(`environment[${item.Name}][${name}]`)} placeholder={value.ZhCN} className="input w-xs" />
+                  <input type="text" {...form.register(`setting.environment.${item.Name}.${name}`)} placeholder={name} className="input w-xs" />
                 </label>
               })}
             </fieldset>
@@ -144,7 +203,7 @@ export default function SettingPage() {
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
           <legend className="fieldset-legend">开机自动启动: </legend>
           <input type="checkbox" className="toggle" {...form.register("autoLaunch")} />
-          <p className="label">配置是否开机自动运行</p>
+          <p className="label">配置是否开机自动运行，仅支持 Windows 系统，需要 nssm.exe </p>
         </fieldset>
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
           <legend className="fieldset-legend">关闭窗口隐藏到托盘: </legend>

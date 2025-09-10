@@ -3,15 +3,16 @@ import { ITerminalOptions, Terminal } from '@xterm/xterm'
 import { useEffect, useRef, useState } from 'react'
 import IconReload from '@renderer/assets/reload.svg'
 import IconPause from '@renderer/assets/pause.svg'
-import IconSend from '@renderer/assets/send.svg'
+import IconHome from '@renderer/assets/home.svg'
 import IconStart from '@renderer/assets/start.svg'
 import { SearchAddon } from '@xterm/addon-search'
 import * as runtime from '@wailsio/runtime'
 import { getEventName, runCommand, stopCommand } from '../../services/command'
-import { systemNotice } from '../../services/notice'
+import { systemError } from '../../services/notice'
 import { useParams } from 'react-router'
-import { ProcessEventMessage, ProcessService } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
+import { ProcessEventMessage, ProcessService, RunOption } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
+import { LogService } from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/log'
 
 const TtyDefaultOption: ITerminalOptions = {
   convertEol: true,
@@ -37,13 +38,13 @@ export default function ConsolePage() {
   const [status, setStatus] = useState<string>()
   const { id } = useParams();
   const [appConfig, setAppConfig] = useState<App>()
+  const eventName = getEventName(id ?? "")
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     console.log(id);
-
     if (!id) {
       return
     }
@@ -76,38 +77,44 @@ export default function ConsolePage() {
     fitAddonRef.current = fitAddon
 
     SettingService.GetApp(id).then(res => {
-      console.log(res);
+
+      LogService.Info("js get config", "config", res)
+
+      if (!res) {
+        systemError("未找到当前应用的配置，请完善 setting.json ")
+        return
+      }
+
+
+      runtime.Events.Off(eventName)
+      runtime.Events.On(eventName, (e) => {
+        console.log(e)
+        const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
+        if (message && message.Status) {
+          setStatus(String(message.Status.trim()))
+        }
+        if (message && message.Log) {
+          terminal.write(message.Log)
+        }
+      })
+
+      ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+        console.log("get process status", message);
+
+        if (message && message.Status) {
+          setStatus(String(message.Status.trim()))
+        }
+        if (message && message.Log) {
+          terminal.write(message.Log)
+        }
+      })
+
       setAppConfig(res)
-    })
-
-    const eventName = getEventName(id)
-    console.log(eventName)
-    runtime.Events.Off(eventName)
-    runtime.Events.On(eventName, (e) => {
-      console.log(e)
-      const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
-      if (message && message.Status) {
-        setStatus(String(message.Status.trim()))
-      }
-      if (message && message.Log) {
-        terminal.write(message.Log)
-      }
-    })
-
-    ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-      console.log("get process status", message);
-
-      if (message && message.Status) {
-        setStatus(String(message.Status.trim()))
-      }
-      if (message && message.Log) {
-        terminal.write(message.Log)
-      }
     })
 
     return () => {
       console.log("events off all");
-      runtime.Events.OffAll()
+      runtime.Events.Off(eventName)
     }
   }, [id])
 
@@ -123,15 +130,14 @@ export default function ConsolePage() {
     }
   }
 
-  async function runProcess(id: string) {
+  async function runProcess(name: string, runOption: RunOption) {
+    if (!name || !runOption) {
+      systemError("启动参数错误，请完善 setting.json 配置文件")
+    }
     terminalRef.current?.clear()
-    const status = await runCommand(id)
+    const status = await runCommand(name, runOption)
     if (!status) {
-      // runtime.Dialogs.Error({
-      //   Title: "系统信息",
-      //   Message: "启动失败, 请查看控制台输出"
-      // })
-      systemNotice("启动失败, 请查看控制台输出")
+      systemError("启动失败, 请查看控制台输出")
       setStatus("error")
     }
   }
@@ -142,37 +148,37 @@ export default function ConsolePage() {
       <div className='prose w-80 mr-auto'>
         <h3 className='pl-5'>
           {appConfig?.Name} 控制台
-          <div className="badge badge-sm badge-soft badge-primary ml-2">{status}</div>
+          <div className="badge badge-sm badge-neutral ml-2">{status}</div>
         </h3>
       </div>
       <div className="gap-0 mr-4  items-center">
-        <button disabled={!status?.includes("running")} className="btn rounded-xl btn-primary mr-4 fill-primary-content"
+        <button className={`btn rounded-xl btn-primary mr-4 fill-primary-content ${!status?.includes("running") && "cursor-not-allowed"}`}
           onClick={async () => {
-            appConfig && await runtime.Browser.OpenURL(appConfig.HomeUrl)
+            appConfig?.HomeUrl && await runtime.Browser.OpenURL(appConfig.HomeUrl)
           }}
         >
-          <IconSend className='w-4' />
+          <IconHome className='w-4' />
           主界面
         </button>
       </div>
       <div className='gap-4 flex'>
-        <button disabled={status?.includes("running") || !appConfig} className="btn join-item rounded-xl btn-success text-success-content fill-success-content" onClick={() => {
-          id && runProcess(id)
-        }}>
+        <button className={`btn join-item rounded-xl btn-success text-success-content/70 fill-success-content ${(status?.includes("running") || !appConfig) && " cursor-not-allowed"}`}
+          onClick={() => {
+            appConfig && runProcess(appConfig.Name, appConfig.RunOption)
+          }}>
           <IconStart className='w-4' />
           启动
         </button>
-        <button className="btn rounded-xl btn-warning text-warning-content fill-warning-content" onClick={async () => {
-          id && await stopCommand(id)
-          id && await runProcess(id)
+        <button className="btn rounded-xl btn-warning text-warning-content/70 fill-warning-content" onClick={async () => {
+          appConfig && await stopCommand(appConfig.Name)
+          appConfig && runProcess(appConfig.Name, appConfig.RunOption)
         }}>
           <IconReload className='w-4' />
           重启
         </button>
-        {/*disabled={!status?.includes("running")}*/}
-        <button className={`btn rounded-xl btn-error  text-error-content fill-error-content`}
+        <button className={`btn rounded-xl btn-error text-error-content/70 fill-error-content ${!status?.includes("running") && " cursor-not-allowed"}`}
           onClick={async () => {
-            id && stopCommand(id)
+            appConfig && stopCommand(appConfig.Name)
           }}>
           <IconPause className='w-4' />
           停止

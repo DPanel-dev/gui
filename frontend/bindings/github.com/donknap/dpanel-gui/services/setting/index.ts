@@ -9,7 +9,8 @@ export {
 export type {
     AllConfig,
     App,
-    EnvironmentLabelItem,
+    EnvironmentItem,
+    FormAppEnvironment,
     Setting,
     System
 } from "./models.js";

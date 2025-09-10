@@ -20,3 +20,14 @@ export function getTextHead(text: string, count = 2): string {
     .slice(0, count) // 最多保留 count 个字母
     .toUpperCase(); // 转大写输出
 }
+
+export function trimLeft(str: string, trim: string): string {
+  if (!str || str.length === 0) {
+    return ""
+  }
+  if (trim.length === 0) return str;
+  while (str.startsWith(trim)) {
+    str = str.slice(trim.length);
+  }
+  return str;
+}

@@ -13,6 +13,18 @@ export function GetAll(): $CancellablePromise<$models.AllConfig> {
     return $Call.ByID(3750558084);
 }
 
-export function GetApp(name: string): $CancellablePromise<$models.App> {
+export function GetApp(name: string): $CancellablePromise<$models.App | null> {
     return $Call.ByID(3956420844, name);
+}
+
+export function OpenHomeFolder(): $CancellablePromise<void> {
+    return $Call.ByID(1429637000);
+}
+
+export function SaveAppEnvironment(env: $models.FormAppEnvironment): $CancellablePromise<void> {
+    return $Call.ByID(835905426, env);
+}
+
+export function SaveSystem(value: $models.System): $CancellablePromise<void> {
+    return $Call.ByID(2383245223, value);
 }

@@ -1,6 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import Menu from './components/layout/menu'
-import Title from './components/layout/title'
 import ConsolePage from './components/page/console'
 import SettingPage from './components/page/setting'
 
