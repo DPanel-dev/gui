@@ -10,5 +10,10 @@ run:
 	wails3 dev
 generate-bindings:
 	wails3 generate bindings -i -ts
+build:
+	export PRODUCTION=true
+	wails3 build
+	# $env:PRODUCTION="true"; wails3 build
+	# wails3 task windows:create:nsis:installer
 clean:
 	rm -rf ./bin/*

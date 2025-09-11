@@ -70,6 +70,7 @@ ManifestDPIAware true
 #!uninstfinalize 'signtool --file "%1"'
 #!finalize 'signtool --file "%1"'
 
+RequestExecutionLevel admin
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
 InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
@@ -87,6 +88,15 @@ Section
     SetOutPath $INSTDIR
     
     !insertmacro wails.files
+
+    File "..\resource\setting.json"
+
+    SetOutPath "$INSTDIR\apps\dpanel"
+    File "..\resource\docker.exe"
+    File "..\resource\docker-compose.exe"
+    File "..\resource\dpanel.exe"
+
+    SetOutPath $INSTDIR
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
