@@ -65,9 +65,10 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 		option.LogMaxLine = 500
 	}
 	process := &Process{
-		Name: name,
-		max:  option.LogMaxLine,
-		logs: make([]string, 0),
+		Name:     name,
+		max:      option.LogMaxLine,
+		logs:     make([]string, 0),
+		stopDone: make(chan bool),
 	}
 	process.ctx, process.ctxCancel = context.WithCancel(self.ctx)
 
@@ -143,13 +144,17 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 
 		go func() {
 			err := process.cmd.Wait()
+			defer func() {
+				slog.Info("process service process wait quit chan")
+				process.stopDone <- true
+			}()
 			if err != nil {
 				process.SaveLog(err.Error())
 				self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
 					Status: StatusError,
 					Log:    err.Error() + "222\n",
 				})
-				slog.Info("process service", "op", "process wait", "err", err)
+				slog.Info("process service process wait", "err", err)
 				return
 			}
 			self.EventEmit(self.GetEventName(name), &ProcessEventMessage{
@@ -201,6 +206,8 @@ func (self *ProcessService) Stop(name string) {
 		myProcess := v.(*Process)
 		slog.Info("process service stop", "process", myProcess.Name)
 		myProcess.Close()
+		// 这里需要等待进程真正的退出
+		<-myProcess.stopDone
 	}
 }
 

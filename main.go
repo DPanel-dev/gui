@@ -95,8 +95,8 @@ func main() {
 		Title:     "DPanel Desktop",
 		Width:     1200,
 		Height:    800,
-		MinWidth:  600,
-		MinHeight: 600,
+		MinWidth:  1024,
+		MinHeight: 768,
 		Windows:   application.WindowsWindow{},
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,

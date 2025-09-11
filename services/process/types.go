@@ -23,15 +23,15 @@ const (
 )
 
 type Process struct {
-	Name      string
-	cmd       *exec.Cmd
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	// FIFO 环形缓冲区
+	Name        string
+	cmd         *exec.Cmd
+	ctx         context.Context
+	ctxCancel   context.CancelFunc
 	logs        []string
 	max         int
 	mu          sync.Mutex
 	StopHandler func()
+	stopDone    chan bool
 }
 
 func (self *Process) SaveLog(line string) {
@@ -41,6 +41,7 @@ func (self *Process) SaveLog(line string) {
 		self.logs = self.logs[1:]
 	}
 	self.logs = append(self.logs, line)
+	slog.Debug("process service save log", "length", len(self.logs))
 }
 
 func (self *Process) GetLog() string {

@@ -1,5 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
-import { ITerminalOptions, Terminal } from '@xterm/xterm'
+import { ITerminalOptions, Terminal, ITerminalInitOnlyOptions } from '@xterm/xterm'
 import { useEffect, useRef, useState } from 'react'
 import IconReload from '@renderer/assets/reload.svg'
 import IconPause from '@renderer/assets/pause.svg'
@@ -14,7 +14,7 @@ import { ProcessEventMessage, ProcessService, RunOption } from '../../../binding
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 import { LogService } from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/log'
 
-const TtyDefaultOption: ITerminalOptions = {
+const TtyDefaultOption: ITerminalOptions & ITerminalInitOnlyOptions = {
   convertEol: true,
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   fontWeight: 400,
@@ -73,56 +73,51 @@ export default function ConsolePage() {
       return true;
     })
 
+    terminal.onRender(() => {
+      fitAddon.fit()
+    })
+
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
 
-    SettingService.GetApp(id).then(res => {
-
-      LogService.Info("js get config", "config", res)
-
-      if (!res) {
-        systemError("未找到当前应用的配置，请完善 setting.json ")
-        return
-      }
-
-
-      runtime.Events.Off(eventName)
-      runtime.Events.On(eventName, (e) => {
-        console.log(e)
-        const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
-        if (message && message.Status) {
-          setStatus(String(message.Status.trim()))
+    setTimeout(() => {
+      SettingService.GetApp(id).then(res => {
+        LogService.Info("js get config", "config", res)
+        if (!res) {
+          systemError("未找到当前应用的配置，请完善 setting.json ")
+          return
         }
-        if (message && message.Log) {
-          terminal.write(message.Log)
-        }
+        runtime.Events.Off(eventName)
+        runtime.Events.On(eventName, (e) => {
+          console.log(e)
+          const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
+          if (message && message.Status) {
+            setStatus(String(message.Status.trim()))
+          }
+          if (message && message.Log) {
+            terminal.write(message.Log)
+          }
+        })
+        ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+          console.log("get process status", message);
+
+          if (message && message.Status) {
+            setStatus(String(message.Status.trim()))
+          }
+          if (message && message.Log) {
+            terminal.write(message.Log)
+          }
+        })
+
+        setAppConfig(res)
       })
-
-      ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-        console.log("get process status", message);
-
-        if (message && message.Status) {
-          setStatus(String(message.Status.trim()))
-        }
-        if (message && message.Log) {
-          terminal.write(message.Log)
-        }
-      })
-
-      setAppConfig(res)
-    })
+    }, 500)
 
     return () => {
       console.log("events off all");
       runtime.Events.Off(eventName)
     }
   }, [id])
-
-
-  useEffect(() => {
-    resize()
-  }, [terminalRef.current])
-
 
   function resize() {
     if (fitAddonRef.current) {
@@ -171,7 +166,7 @@ export default function ConsolePage() {
         </button>
         <button className="btn rounded-xl btn-warning text-warning-content/70 fill-warning-content" onClick={async () => {
           appConfig && await stopCommand(appConfig.Name)
-          appConfig && runProcess(appConfig.Name, appConfig.RunOption)
+          appConfig && await runProcess(appConfig.Name, appConfig.RunOption)
         }}>
           <IconReload className='w-4' />
           重启
