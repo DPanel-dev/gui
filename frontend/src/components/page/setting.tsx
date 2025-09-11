@@ -113,6 +113,14 @@ export default function SettingPage() {
       form.setValue("autoLaunch", config.System.AutoLaunch)
       form.setValue("closeWindowHide", config.System.CloseWindowHide)
       form.setValue("theme", config.System.Theme)
+
+      SettingService.GetAutoLaunchStatus().then(res => {
+        if (res && res.Data != "") {
+          form.setValue("autoLaunch", true)
+        } else {
+          form.setValue("autoLaunch", false)
+        }
+      })
     }
   }, [config])
 
@@ -149,12 +157,6 @@ export default function SettingPage() {
         setLoading(true)
 
         try {
-          await SettingService.SaveSystem({
-            AutoLaunch: formData.autoLaunch,
-            CloseWindowHide: formData.closeWindowHide,
-            Theme: formData.theme,
-          })
-
           await SettingService.SaveAppEnvironment(formData.setting.environment && Object.entries(formData.setting.environment).map(([name, item]) => {
             return {
               name: name,
@@ -170,6 +172,15 @@ export default function SettingPage() {
               data: formData.theme
             })
           }
+
+          await SettingService.SaveSystem({
+            AutoLaunch: formData.autoLaunch,
+            CloseWindowHide: formData.closeWindowHide,
+            Theme: formData.theme,
+          })
+
+          SettingService.SaveAutoLaunchStatus(formData.autoLaunch)
+
         } catch (e) {
           setLoading(false)
         } finally {
@@ -183,6 +194,9 @@ export default function SettingPage() {
           <div className=" flex gap-3">
             <h5 className="text-xs font-semibold">
               当前程序根目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
+            </h5>
+            <h5 className="text-xs font-semibold">
+              当前用户目录 <span className="badge badge-xs badge-neutral">DP_USER_HOME_DIR</span>
             </h5>
           </div>
         </fieldset>
@@ -203,7 +217,7 @@ export default function SettingPage() {
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
           <legend className="fieldset-legend">开机自动启动: </legend>
           <input type="checkbox" className="toggle" {...form.register("autoLaunch")} />
-          <p className="label">配置是否开机自动运行，仅支持 Windows 系统，需要 nssm.exe </p>
+          <p className="label">配置是否开机自动运行，仅支持 Windows 系统，需以 “管理员身份运行” 程序</p>
         </fieldset>
         <fieldset className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
           <legend className="fieldset-legend">关闭窗口隐藏到托盘: </legend>

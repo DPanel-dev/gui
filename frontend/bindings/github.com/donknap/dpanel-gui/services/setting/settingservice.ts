@@ -7,6 +7,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as function$0 from "../../function/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function GetAll(): $CancellablePromise<$models.AllConfig> {
@@ -17,14 +21,22 @@ export function GetApp(name: string): $CancellablePromise<$models.App | null> {
     return $Call.ByID(3956420844, name);
 }
 
+export function GetAutoLaunchStatus(): $CancellablePromise<function$0.Response | null> {
+    return $Call.ByID(1374284227);
+}
+
 export function OpenHomeFolder(): $CancellablePromise<void> {
     return $Call.ByID(1429637000);
 }
 
-export function SaveAppEnvironment(env: $models.FormAppEnvironment): $CancellablePromise<void> {
+export function SaveAppEnvironment(env: $models.FormAppEnvironment): $CancellablePromise<function$0.Response | null> {
     return $Call.ByID(835905426, env);
 }
 
-export function SaveSystem(value: $models.System): $CancellablePromise<void> {
+export function SaveAutoLaunchStatus(status: boolean): $CancellablePromise<function$0.Response | null> {
+    return $Call.ByID(426509468, status);
+}
+
+export function SaveSystem(value: $models.System): $CancellablePromise<function$0.Response | null> {
     return $Call.ByID(2383245223, value);
 }

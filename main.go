@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -11,11 +12,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/events"
-
+	"github.com/donknap/dpanel-gui/function"
 	"github.com/donknap/dpanel-gui/services/process"
 	"github.com/donknap/dpanel-gui/services/setting"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 	log2 "github.com/wailsapp/wails/v3/pkg/services/log"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
@@ -28,6 +29,9 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/windows/resource/setting.json
+var windowsDefaultSetting []byte
+
 // main function serves as the application's entry point. It initializes the application, creates a window,
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
@@ -39,7 +43,7 @@ func main() {
 		panic(err)
 	}
 	workDir := filepath.Dir(exePath)
-	_ = os.Setenv("DP_WORK_DIR", workDir)
+	_ = os.Setenv(function.EnvWorkDir, workDir)
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -59,9 +63,16 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
-
+	defaultSetting := setting.AllConfig{}
+	if runtime.GOOS == "windows" {
+		err = json.Unmarshal(windowsDefaultSetting, &defaultSetting)
+		if err != nil {
+			panic("JSON unmarshal error: " + err.Error())
+		}
+	}
 	settingService := setting.New(&setting.Config{
-		WorkDir: workDir,
+		WorkDir:        workDir,
+		DefaultSetting: defaultSetting,
 	})
 	app.RegisterService(application.NewService(settingService))
 
@@ -92,7 +103,7 @@ func main() {
 	// 'URL' is the URL that will be loaded into the webview.
 	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
-		Title:     "DPanel Desktop",
+		Title:     "DPanel Desktop - v1.0.0-alpha.3",
 		Width:     1200,
 		Height:    800,
 		MinWidth:  1024,
@@ -105,8 +116,8 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
-		X:                2000,
-		Y:                10,
+		//X:                2000,
+		//Y:                10,
 	})
 
 	// Create a goroutine that emits an event containing the current time every second.
@@ -118,17 +129,6 @@ func main() {
 			time.Sleep(time.Second)
 		}
 	}()
-
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		//mainWindow.Minimise()
-		if runtime.GOOS == "windows" {
-			app.Hide()
-		} else {
-			//@todo Mac 系统隐藏窗口后会报错
-			mainWindow.Minimise()
-		}
-		event.Cancel()
-	})
 
 	icon, err := assets.ReadFile("frontend/dist/icon.png")
 	if err != nil {
@@ -160,6 +160,23 @@ func main() {
 	systray := app.SystemTray.New()
 	systray.SetTemplateIcon(icon)
 	systray.SetMenu(trayMenu)
+
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		allConfig := settingService.GetAll()
+		if !allConfig.System.CloseWindowHide {
+			systray.Destroy()
+			return
+		}
+		//mainWindow.Minimise()
+		if runtime.GOOS == "windows" {
+			app.Hide()
+		} else {
+			//@todo Mac 系统隐藏窗口后会报错
+			mainWindow.Minimise()
+		}
+		event.Cancel()
+	})
+
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()
 

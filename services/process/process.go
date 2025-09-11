@@ -9,11 +9,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/sys/windows"
 
 	"github.com/donknap/dpanel-gui/function"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -86,9 +88,10 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 	} else {
 		workDir = filepath.Join(self.config.WorkDir, option.WorkDir)
 	}
-
+	homeDir, _ := os.UserHomeDir()
 	runEnv := make([]string, 0)
-	runEnv = append(runEnv, "DP_WORK_DIR="+workDir)
+	runEnv = append(runEnv, function.EnvWorkDir+"="+workDir)
+	runEnv = append(runEnv, function.EnvUserHomeDir+"="+homeDir)
 	runEnv = append(runEnv, option.Environment...)
 	appEnvMap, err := godotenv.Unmarshal(strings.Join(runEnv, "\n"))
 	slog.Debug("process service parse env", "runEnv", runEnv)
@@ -103,6 +106,8 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 	runEnv = function.PluckMapWalkArray(appEnvMap, func(name string, value string) (string, bool) {
 		return fmt.Sprintf("%s=%s", name, value), true
 	})
+	// 将应用的运行目录附加上环境变量中，方便调用命令
+	_ = os.Setenv("PATH", fmt.Sprintf("%s%s%s", os.Getenv("PATH"), string(filepath.ListSeparator), workDir))
 	// 最后附加上系统环境变量
 	runEnv = append(runEnv, os.Environ()...)
 
@@ -130,7 +135,11 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 		process.cmd = exec.CommandContext(process.ctx, cmdName, cmdArgs...)
 		process.cmd.Dir = workDir
 		process.cmd.Env = runEnv
-
+		if runtime.GOOS == "windows" {
+			process.cmd.SysProcAttr = &windows.SysProcAttr{
+				HideWindow: true,
+			}
+		}
 		slog.Info("process service run params", "name", cmdName, "args", cmdArgs, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()

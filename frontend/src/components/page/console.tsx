@@ -84,7 +84,7 @@ export default function ConsolePage() {
       SettingService.GetApp(id).then(res => {
         LogService.Info("js get config", "config", res)
         if (!res) {
-          systemError("未找到当前应用的配置，请完善 setting.json ")
+          systemError("未找到当前应用的配置，请完善 setting.json 后重新运行")
           return
         }
         runtime.Events.Off(eventName)

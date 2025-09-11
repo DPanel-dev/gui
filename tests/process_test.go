@@ -5,16 +5,14 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/joho/godotenv"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-)
 
-//go:embed appicon.png
-var iconBytes []byte
+	"github.com/joho/godotenv"
+)
 
 func TestCommand(t *testing.T) {
 	path := "D:\\Workspace\\dpanel-gui-wails-v3\\bin\\nginx-1.29.1\\nginx.exe"
@@ -34,7 +32,9 @@ func TestCommand(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
-	fmt.Printf("TestEnv %v \n", iconBytes)
+
+	fmt.Printf("TestEnv %v \n", os.Getenv("PATH"))
+	return
 	appEnv := []string{
 		"DP_WORK_DIR=/User/test",
 		"APP_SERVER_PORT=8086",

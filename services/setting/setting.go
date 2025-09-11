@@ -3,6 +3,7 @@ package setting
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -12,50 +13,11 @@ import (
 	"strings"
 
 	"github.com/donknap/dpanel-gui/function"
-	"github.com/donknap/dpanel-gui/services/process"
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
+	"golang.org/x/sys/windows/registry"
 )
-
-var defaultConfig = AllConfig{
-	System: System{
-		AutoLaunch:      false,
-		CloseWindowHide: true,
-		Theme:           "light",
-	},
-	Apps: []App{
-		{
-			Name:    "dpanel",
-			HomeUrl: "${HOME_URL}:${APP_SERVER_PORT}",
-			RunOption: process.RunOption{
-				AutoLaunch:   true,
-				WorkDir:      "./apps/dpanel",
-				StartCommand: "./dpanel server:start",
-				StopCommand:  "",
-				Environment: []string{
-					"APP_SERVER_PORT=8086",
-					"STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
-					"HOME_URL=http://127.0.0.1",
-				},
-				LogMaxLine: 1000,
-			},
-			Setting: Setting{
-				Environment: map[string]EnvironmentItem{
-					"APP_SERVER_PORT": {
-						Description: "服务运行端口",
-					},
-					"STORAGE_LOCAL_PATH": {
-						Description: "数据存储目录",
-					},
-					"HOME_URL": {
-						Description: "访问地址",
-					},
-				},
-			},
-		},
-	},
-}
 
 func New(config *Config) *SettingService {
 	kvStoreServiceConfigFile := filepath.Join(config.WorkDir, "setting.json")
@@ -67,6 +29,7 @@ func New(config *Config) *SettingService {
 	return &SettingService{
 		configFilePath: kvStoreServiceConfigFile,
 		kvStoreService: kvStoreService,
+		defaultSetting: config.DefaultSetting,
 	}
 }
 
@@ -74,16 +37,18 @@ type SettingService struct {
 	ctx            context.Context
 	kvStoreService *kvstore.KVStoreService
 	configFilePath string
+	defaultSetting AllConfig
 }
 
 func (self *SettingService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	self.ctx = ctx
 	if _, err := os.Stat(self.configFilePath); err != nil {
-		err = self.kvStoreService.Set("Setting", defaultConfig)
+		err = self.kvStoreService.Set("Setting", self.defaultSetting)
 		if err != nil {
 			return err
 		}
 	}
+	_ = os.Mkdir(filepath.Join(filepath.Dir(self.configFilePath), "apps"), os.ModePerm)
 	return nil
 }
 
@@ -103,13 +68,13 @@ func (self *SettingService) GetAll() AllConfig {
 			config := AllConfig{}
 			err = json.Unmarshal(dataStr, &config)
 			if err != nil {
-				return defaultConfig
+				return self.defaultSetting
 			} else {
 				return config
 			}
 		}
 	}
-	return defaultConfig
+	return self.defaultSetting
 }
 
 func (self *SettingService) GetApp(name string) *App {
@@ -129,13 +94,17 @@ func (self *SettingService) GetApp(name string) *App {
 	return nil
 }
 
-func (self *SettingService) SaveSystem(value System) error {
+func (self *SettingService) SaveSystem(value System) *function.Response {
 	allConfig := self.GetAll()
 	allConfig.System = value
-	return self.kvStoreService.Set("Setting", allConfig)
+	err := self.kvStoreService.Set("Setting", allConfig)
+	if err != nil {
+		return function.Error(err)
+	}
+	return nil
 }
 
-func (self *SettingService) SaveAppEnvironment(env FormAppEnvironment) error {
+func (self *SettingService) SaveAppEnvironment(env FormAppEnvironment) *function.Response {
 	allConfig := self.GetAll()
 	for i, app := range allConfig.Apps {
 		for _, item := range env {
@@ -144,15 +113,56 @@ func (self *SettingService) SaveAppEnvironment(env FormAppEnvironment) error {
 			}
 		}
 	}
-	return self.kvStoreService.Set("Setting", allConfig)
+	return function.Error(self.kvStoreService.Set("Setting", allConfig))
+}
+
+func (self *SettingService) GetAutoLaunchStatus() *function.Response {
+	if runtime.GOOS == "windows" {
+		regKey, err := registry.OpenKey(registry.CURRENT_USER, AutoLaunchKey, registry.READ)
+		if err != nil {
+			slog.Info("setting service auto launch failed", "err", err)
+			return function.Error(err)
+		}
+		defer func() {
+			_ = regKey.Close()
+		}()
+
+		values, _, err := regKey.GetStringValue("DPanelDesktop")
+		if err != nil && strings.Contains(err.Error(), "Access is denied") {
+			slog.Info("setting service auto launch permission", "err", err)
+			return function.Error(err)
+		}
+		return function.Result(values)
+	}
+	return function.Error(errors.New("only support windows"))
+}
+
+func (self *SettingService) SaveAutoLaunchStatus(status bool) *function.Response {
+	if runtime.GOOS == "windows" {
+		regKey, err := registry.OpenKey(registry.CURRENT_USER, AutoLaunchKey, registry.SET_VALUE)
+		if err != nil {
+			slog.Info("setting service auto launch failed", "err", err)
+			return function.Error(err)
+		}
+		defer func() {
+			_ = regKey.Close()
+		}()
+		if status == true {
+			return function.Error(regKey.SetStringValue("DPanelDesktop", filepath.Join(filepath.Dir(self.configFilePath), "dpanel-desktop.exe")))
+		}
+		if status == false {
+			return function.Error(regKey.DeleteValue("DPanelDesktop"))
+		}
+	}
+	return nil
 }
 
 func (self *SettingService) OpenHomeFolder() error {
-	path := os.Getenv("DP_WORK_DIR")
+	path := os.Getenv(function.EnvWorkDir)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", path)
+		cmd = exec.Command("explorer", path)
 	case "darwin": // macOS
 		cmd = exec.Command("open", path)
 	case "linux":
