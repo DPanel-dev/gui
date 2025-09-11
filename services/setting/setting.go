@@ -37,13 +37,17 @@ type SettingService struct {
 	ctx            context.Context
 	kvStoreService *kvstore.KVStoreService
 	configFilePath string
-	defaultSetting AllConfig
+	defaultSetting AllSetting
 }
 
 func (self *SettingService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	self.ctx = ctx
 	if _, err := os.Stat(self.configFilePath); err != nil {
-		err = self.kvStoreService.Set("Setting", self.defaultSetting)
+		err = self.kvStoreService.Set("System", self.defaultSetting.System)
+		if err != nil {
+			return err
+		}
+		err = self.kvStoreService.Set("Apps", self.defaultSetting.Apps)
 		if err != nil {
 			return err
 		}
@@ -60,12 +64,12 @@ func (self *SettingService) ServiceName() string {
 	return "github.com/donknap/dpanel-gui/config"
 }
 
-func (self *SettingService) GetAll() AllConfig {
+func (self *SettingService) GetAll() AllSetting {
 	_ = self.kvStoreService.Load()
 	if data := self.kvStoreService.Get(""); data != nil {
-		if dataStr, err := json.Marshal(data.(map[string]any)["Setting"]); err == nil {
+		if dataStr, err := json.Marshal(data); err == nil {
 			slog.Info("config get data", "data", string(dataStr))
-			config := AllConfig{}
+			config := AllSetting{}
 			err = json.Unmarshal(dataStr, &config)
 			if err != nil {
 				return self.defaultSetting
@@ -97,7 +101,7 @@ func (self *SettingService) GetApp(name string) *App {
 func (self *SettingService) SaveSystem(value System) *function.Response {
 	allConfig := self.GetAll()
 	allConfig.System = value
-	err := self.kvStoreService.Set("Setting", allConfig)
+	err := self.kvStoreService.Set("System", allConfig.System)
 	if err != nil {
 		return function.Error(err)
 	}
@@ -113,7 +117,7 @@ func (self *SettingService) SaveAppEnvironment(env FormAppEnvironment) *function
 			}
 		}
 	}
-	return function.Error(self.kvStoreService.Set("Setting", allConfig))
+	return function.Error(self.kvStoreService.Set("Apps", allConfig.Apps))
 }
 
 func (self *SettingService) GetAutoLaunchStatus() *function.Response {

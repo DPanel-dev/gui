@@ -13,7 +13,7 @@ import * as function$0 from "../../function/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function GetAll(): $CancellablePromise<$models.AllConfig> {
+export function GetAll(): $CancellablePromise<$models.AllSetting> {
     return $Call.ByID(3750558084);
 }
 

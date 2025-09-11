@@ -6,7 +6,7 @@ const AutoLaunchKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 type Config struct {
 	WorkDir        string
-	DefaultSetting AllConfig
+	DefaultSetting AllSetting
 }
 
 type System struct {
@@ -22,7 +22,7 @@ type App struct {
 	Setting   Setting `json:",omitempty"`
 }
 
-type AllConfig struct {
+type AllSetting struct {
 	System System
 	Apps   []App
 }

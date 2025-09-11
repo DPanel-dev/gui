@@ -5,7 +5,7 @@
 // @ts-ignore: Unused imports
 import * as process$0 from "../process/models.js";
 
-export interface AllConfig {
+export interface AllSetting {
     "System": System;
     "Apps": App[] | null;
 }

@@ -7,7 +7,7 @@ export {
 };
 
 export type {
-    AllConfig,
+    AllSetting,
     App,
     EnvironmentItem,
     FormAppEnvironment,

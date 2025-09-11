@@ -4,7 +4,7 @@ import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
 import {
-  AllConfig,
+  AllSetting,
   App,
   EnvironmentItem,
   SettingService
@@ -34,7 +34,7 @@ export default function SettingPage() {
   const [reload, setReload] = useState(0)
   const toastRef = useRef<ToastRefType>(null)
   const [loading, setLoading] = useState(false)
-  const [config, setConfig] = useState<AllConfig | null>()
+  const [config, setConfig] = useState<AllSetting | null>()
 
   useEffect(() => {
     // setConfig({
@@ -97,7 +97,7 @@ export default function SettingPage() {
     //   ]
     // })
 
-    SettingService.GetAll().then((res: AllConfig) => {
+    SettingService.GetAll().then((res: AllSetting) => {
       res && setConfig(res)
     })
   }, [reload])

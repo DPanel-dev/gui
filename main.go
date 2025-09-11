@@ -63,7 +63,7 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
-	defaultSetting := setting.AllConfig{}
+	defaultSetting := setting.AllSetting{}
 	if runtime.GOOS == "windows" {
 		err = json.Unmarshal(windowsDefaultSetting, &defaultSetting)
 		if err != nil {
