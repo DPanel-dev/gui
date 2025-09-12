@@ -1,6 +1,5 @@
 //go:build !windows
 
-package proces
 package process
 
 import (
