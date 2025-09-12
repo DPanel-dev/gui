@@ -9,13 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
-	"golang.org/x/sys/windows"
 
 	"github.com/donknap/dpanel-gui/function"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -132,14 +130,9 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 
 	out, err := func() (io.ReadCloser, error) {
 		cmdName, cmdArgs := function.SplitCommandArray(option.StartCommand)
-		process.cmd = exec.CommandContext(process.ctx, cmdName, cmdArgs...)
+		process.cmd = self.newCmd(process.ctx, cmdName, cmdArgs...)
 		process.cmd.Dir = workDir
 		process.cmd.Env = runEnv
-		if runtime.GOOS == "windows" {
-			process.cmd.SysProcAttr = &windows.SysProcAttr{
-				HideWindow: true,
-			}
-		}
 		slog.Info("process service run params", "name", cmdName, "args", cmdArgs, "env", process.cmd.Env)
 
 		stdout, err := process.cmd.StdoutPipe()

@@ -3,7 +3,6 @@ package setting
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
-	"golang.org/x/sys/windows/registry"
 )
 
 func New(config *Config) *SettingService {
@@ -117,47 +115,6 @@ func (self *SettingService) SaveAppEnvironment(env FormAppEnvironment) *function
 		}
 	}
 	return function.Error(self.kvStoreService.Set("Apps", allConfig.Apps))
-}
-
-func (self *SettingService) GetAutoLaunchStatus() *function.Response {
-	if runtime.GOOS == "windows" {
-		regKey, err := registry.OpenKey(registry.CURRENT_USER, AutoLaunchKey, registry.READ)
-		if err != nil {
-			slog.Info("setting service auto launch failed", "err", err)
-			return function.Error(err)
-		}
-		defer func() {
-			_ = regKey.Close()
-		}()
-
-		values, _, err := regKey.GetStringValue("DPanelDesktop")
-		if err != nil && strings.Contains(err.Error(), "Access is denied") {
-			slog.Info("setting service auto launch permission", "err", err)
-			return function.Error(err)
-		}
-		return function.Result(values)
-	}
-	return function.Error(errors.New("only support windows"))
-}
-
-func (self *SettingService) SaveAutoLaunchStatus(status bool) *function.Response {
-	if runtime.GOOS == "windows" {
-		regKey, err := registry.OpenKey(registry.CURRENT_USER, AutoLaunchKey, registry.SET_VALUE)
-		if err != nil {
-			slog.Info("setting service auto launch failed", "err", err)
-			return function.Error(err)
-		}
-		defer func() {
-			_ = regKey.Close()
-		}()
-		if status == true {
-			return function.Error(regKey.SetStringValue("DPanelDesktop", filepath.Join(filepath.Dir(self.configFilePath), "dpanel-desktop.exe")))
-		}
-		if status == false {
-			return function.Error(regKey.DeleteValue("DPanelDesktop"))
-		}
-	}
-	return nil
 }
 
 func (self *SettingService) OpenFolder(path string) error {
