@@ -72,7 +72,6 @@ func (self *Process) Close() {
 
 type Config struct {
 	App            *application.App
-	WorkDir        string
 	StartupHandler func(ctx context.Context, self *ProcessService)
 }
 

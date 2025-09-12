@@ -52,7 +52,6 @@ func (self *SettingService) ServiceStartup(ctx context.Context, options applicat
 			return err
 		}
 	}
-	_ = os.Mkdir(filepath.Join(filepath.Dir(self.configFilePath), "apps"), os.ModePerm)
 	return nil
 }
 
@@ -161,8 +160,7 @@ func (self *SettingService) SaveAutoLaunchStatus(status bool) *function.Response
 	return nil
 }
 
-func (self *SettingService) OpenHomeFolder() error {
-	path := os.Getenv(function.EnvWorkDir)
+func (self *SettingService) OpenFolder(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -175,4 +173,20 @@ func (self *SettingService) OpenHomeFolder() error {
 		return fmt.Errorf("unsupported platform")
 	}
 	return cmd.Run()
+}
+
+func (self *SettingService) OpenWorkDir() bool {
+	err := self.OpenFolder(os.Getenv(function.EnvWorkDir))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (self *SettingService) OpenHomeDir() bool {
+	err := self.OpenFolder(os.Getenv(function.EnvHomeDir))
+	if err != nil {
+		return false
+	}
+	return true
 }

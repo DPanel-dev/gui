@@ -1,7 +1,7 @@
 package function
 
 const EnvWorkDir = "DP_WORK_DIR"
-const EnvUserHomeDir = "DP_USER_HOME_DIR"
+const EnvHomeDir = "DP_HOME_DIR"
 
 type Response struct {
 	Error string

@@ -136,10 +136,16 @@ export default function SettingPage() {
       <div className="join gap-0 mr-4  items-center">
         <div className='gap-4 flex'>
           <button className="btn rounded-xl" onClick={async () => {
-            await SettingService.OpenHomeFolder()
+            await SettingService.OpenWorkDir()
           }}>
             <IconFolderOpen className='w-4' />
             程序目录
+          </button>
+          <button className="btn rounded-xl" onClick={async () => {
+            await SettingService.OpenHomeDir()
+          }}>
+            <IconFolderOpen className='w-4' />
+            数据目录
           </button>
           <button className="btn rounded-xl btn-primary text-primary-content fill-primary-content" type="submit"
             form="setting-form">
@@ -193,10 +199,10 @@ export default function SettingPage() {
           <legend className="fieldset-legend">预设环境变量: </legend>
           <div className=" flex gap-3">
             <h5 className="text-xs font-semibold">
-              当前程序根目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
+              程序运行目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
             </h5>
             <h5 className="text-xs font-semibold">
-              当前用户目录 <span className="badge badge-xs badge-neutral">DP_USER_HOME_DIR</span>
+              数据存储目录 <span className="badge badge-xs badge-neutral">DP_HOME_DIR</span>
             </h5>
           </div>
         </fieldset>

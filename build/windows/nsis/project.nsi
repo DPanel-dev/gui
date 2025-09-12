@@ -89,7 +89,7 @@ Section
     
     !insertmacro wails.files
 
-    File "..\resource\setting.json"
+    File "..\resource\setting.default.json"
 
     SetOutPath "$INSTDIR\apps\dpanel"
     File "..\resource\docker.exe"

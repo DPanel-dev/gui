@@ -86,12 +86,12 @@ func (self *ProcessService) Run(name string, option RunOption) bool {
 	if filepath.IsAbs(option.WorkDir) {
 		workDir = option.WorkDir
 	} else {
-		workDir = filepath.Join(self.config.WorkDir, option.WorkDir)
+		workDir = filepath.Join(os.Getenv(function.EnvWorkDir), option.WorkDir)
 	}
-	homeDir, _ := os.UserHomeDir()
+
 	runEnv := make([]string, 0)
 	runEnv = append(runEnv, function.EnvWorkDir+"="+workDir)
-	runEnv = append(runEnv, function.EnvUserHomeDir+"="+homeDir)
+	runEnv = append(runEnv, function.EnvHomeDir+"="+os.Getenv(function.EnvHomeDir))
 	runEnv = append(runEnv, option.Environment...)
 	appEnvMap, err := godotenv.Unmarshal(strings.Join(runEnv, "\n"))
 	slog.Debug("process service parse env", "runEnv", runEnv)

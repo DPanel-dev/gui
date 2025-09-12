@@ -29,7 +29,7 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed build/windows/resource/setting.json
+//go:embed build/windows/resource/setting.default.json
 var windowsDefaultSetting []byte
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
@@ -45,6 +45,11 @@ func main() {
 	workDir := filepath.Dir(exePath)
 	_ = os.Setenv(function.EnvWorkDir, workDir)
 
+	userHomeDir, _ := os.UserHomeDir()
+	homeDir := filepath.Join(userHomeDir, ".dpanel")
+	_ = os.Setenv(function.EnvHomeDir, homeDir)
+
+	_ = os.Mkdir(homeDir, os.ModePerm)
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -71,15 +76,15 @@ func main() {
 		}
 	}
 	settingService := setting.New(&setting.Config{
-		WorkDir:        workDir,
+		WorkDir:        homeDir,
 		DefaultSetting: defaultSetting,
 	})
 	app.RegisterService(application.NewService(settingService))
 
 	processService := process.New(&process.Config{
-		App:     app,
-		WorkDir: workDir,
+		App: app,
 		StartupHandler: func(ctx context.Context, self *process.ProcessService) {
+			_ = os.Mkdir(filepath.Join(workDir, "apps"), os.ModePerm)
 			if v := settingService.GetAll(); v.Apps != nil {
 				for _, item := range v.Apps {
 					if item.RunOption.AutoLaunch {
@@ -103,7 +108,7 @@ func main() {
 	// 'URL' is the URL that will be loaded into the webview.
 	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
-		Title:     "DPanel Desktop - v1.0.0-alpha.3",
+		Title:     "DPanel Desktop - v1.0.0-alpha.4",
 		Width:     1200,
 		Height:    800,
 		MinWidth:  1024,

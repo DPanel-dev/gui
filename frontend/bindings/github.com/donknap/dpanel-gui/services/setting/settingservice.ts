@@ -25,8 +25,16 @@ export function GetAutoLaunchStatus(): $CancellablePromise<function$0.Response |
     return $Call.ByID(1374284227);
 }
 
-export function OpenHomeFolder(): $CancellablePromise<void> {
-    return $Call.ByID(1429637000);
+export function OpenFolder(path: string): $CancellablePromise<void> {
+    return $Call.ByID(4230578371, path);
+}
+
+export function OpenHomeDir(): $CancellablePromise<boolean> {
+    return $Call.ByID(1247439987);
+}
+
+export function OpenWorkDir(): $CancellablePromise<boolean> {
+    return $Call.ByID(2945154633);
 }
 
 export function SaveAppEnvironment(env: $models.FormAppEnvironment): $CancellablePromise<function$0.Response | null> {
