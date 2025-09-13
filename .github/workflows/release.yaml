@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+
 jobs:
   windows-build:
     strategy:
@@ -15,18 +16,33 @@ jobs:
       - name: Test Env
         run: |
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-          echo "Tag name from github.ref_name: ${{  github.ref_name }}"
-          echo "Tag name from github.ref: ${{  github.ref }}"
-          echo "Runs name: ${{runner.os}}"
+          echo "Tag name from github.ref_name: ${{ github.ref_name }}"
+          echo "Tag name from github.ref: ${{ github.ref }}"
+          echo "Runner OS: ${{ runner.os }}"
+
       - uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+
+      # 👇 新增：安装 wails3 CLI 工具
+      - name: Install wails3
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        env:
+          GOPATH: ${{ runner.workspace }}/go
+          PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
+
       - name: Build
         run: |
           wails3 task windows:create:nsis:installer
-      - name: upload artifact
+        env:
+          GOPATH: ${{ runner.workspace }}/go
+          PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
+
+      - name: Upload artifact
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
