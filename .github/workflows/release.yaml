@@ -6,6 +6,38 @@ on:
       - 'v*'
 
 jobs:
+  download_resource:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Docker Cli
+        continue-on-error: true
+        run: |
+          LATEST_ZIP=$(curl -s https://download.docker.com/win/static/stable/x86_64/ | grep -oE 'docker-[0-9.]+\.zip' | tail -n 1)
+          wget https://download.docker.com/win/static/stable/x86_64/$LATEST
+          unzip $LATEST
+      - name: Download Docker Compose
+        continue-on-error: true
+        run: |
+          URL=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r '.assets[] | select(.name == "docker-compose-windows-x86_64.exe") | .browser_download_url')
+          curl -L -o docker-compose.exe "$URL"
+      - name: Download DPanel
+        continue-on-error: true
+        run: |
+          URL=$(curl -s https://api.github.com/repos/donknap/dpanel/releases/latest | jq -r '.assets[] | select(.name == "dpanel.exe") | .browser_download_url')
+          curl -L -o dpanel.exe "$URL"
+      - name: Create Release
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: resource
+          name: "Toolchains Collection"
+          body: "Pre-built toolchains for ARM, ARM64, AMD64，MUSL and Synology platforms"
+          files: |
+            docker/docker.exe
+            docker-compose.exe
+            dpanel.exe
+          draft: false
+          prerelease: false
   windows-build:
     strategy:
       matrix:
@@ -19,29 +51,31 @@ jobs:
           echo "Tag name from github.ref_name: ${{ github.ref_name }}"
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
-
       - uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
-      # 👇 新增：安装 wails3 CLI 工具
+      - name: Download Resource
+        run: |
+          BASE_URL="https://github.com/donknap/dpanel-gui/releases/download/resource"
+          curl -L -o build/windows/resource/docker.exe        "$BASE_URL/docker.exe"
+          curl -L -o build/windows/resource/docker-compose.exe "$BASE_URL/docker-compose.exe"
+          curl -L -o build/windows/resource/dpanel.exe         "$BASE_URL/dpanel.exe"
       - name: Install wails3
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          echo "wails3 installed at $env:GOPATH\bin\wails3.exe"
+          echo "$env:GOPATH\bin" >> $env:GITHUB_PATH
         env:
           GOPATH: ${{ runner.workspace }}/go
           PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
-
       - name: Build
         run: |
           wails3 task windows:create:nsis:installer
         env:
           GOPATH: ${{ runner.workspace }}/go
           PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
-
       - name: Upload artifact
         uses: softprops/action-gh-release@v2
         with:
