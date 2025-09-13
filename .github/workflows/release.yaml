@@ -75,7 +75,7 @@ jobs:
           )
 
           foreach ($file in $files) {
-            Write-Host "Downloading $($file.url)..."
+            Write-Host "Downloading $($file.url)"
             try {
               Invoke-WebRequest -Uri $file.url -Headers $headers -OutFile $file.out -ErrorAction Stop
               if (Test-Path $file.out) {
@@ -90,7 +90,7 @@ jobs:
           }
         shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
 
       - name: Install wails3
         run: |
