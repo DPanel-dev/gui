@@ -6,38 +6,6 @@ on:
       - 'v*'
 
 jobs:
-  download_resource:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Docker Cli
-        continue-on-error: true
-        run: |
-          LATEST_ZIP=$(curl -s https://download.docker.com/win/static/stable/x86_64/ | grep -oE 'docker-[0-9.]+\.zip' | tail -n 1)
-          wget https://download.docker.com/win/static/stable/x86_64/$LATEST_ZIP
-          unzip $LATEST_ZIP
-      - name: Download Docker Compose
-        continue-on-error: true
-        run: |
-          URL=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r '.assets[] | select(.name == "docker-compose-windows-x86_64.exe") | .browser_download_url')
-          curl -L -o docker-compose.exe "$URL"
-      - name: Download DPanel
-        continue-on-error: true
-        run: |
-          URL=$(curl -s https://api.github.com/repos/donknap/dpanel/releases/latest | jq -r '.assets[] | select(.name == "dpanel.exe") | .browser_download_url')
-          curl -L -o dpanel.exe "$URL"
-      - name: Create Release
-        if: always()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: resource
-          name: "Resource Collection"
-          body: "Pre-built toolchains for ARM, ARM64, AMD64，MUSL and Synology platforms"
-          files: |
-            docker/docker.exe
-            docker-compose.exe
-            dpanel.exe
-          draft: false
-          prerelease: false
   windows-build:
     strategy:
       matrix:
@@ -58,21 +26,19 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
       - name: Download Resource
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
-          $baseUrl = "https://github.com/donknap/dpanel-gui/releases/download/resource"
-          New-Item -ItemType Directory -Path "build\windows\resource" -Force
-
-          # GitHub Actions 会自动注入 GITHUB_TOKEN
-          $token = $env:GITHUB_TOKEN
-          $headers = @{ "Authorization" = "Bearer $token" }
-
+          $headers = @{} # 如果需要认证头，比如 GitHub Token
+          # PowerShell 脚本内联或从文件读取
           $files = @(
-            @{ url = "$baseUrl/docker.exe";        out = "build\windows\resource\docker.exe" },
-            @{ url = "$baseUrl/docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" },
-            @{ url = "$baseUrl/dpanel.exe";         out = "build\windows\resource\dpanel.exe" }
+            @{ url = "https://github.com/donknap/dpanel/releases/download/docker-cli-v1/docker-windows-x86_64.exe"; out = "build\windows\resource\docker.exe" },
+            @{ url = "https://github.com/donknap/dpanel/releases/download/docker-cli-v1/docker-compose-windows-x86_64.exe"; out = "build\windows\resource\docker-compose.exe" },
+            @{ url = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel.exe"; out = "build\windows\resource\dpanel.exe" }
           )
+
+          New-Item -ItemType Directory -Path "build\windows\resource" -Force
 
           foreach ($file in $files) {
             Write-Host "Downloading $($file.url)"
@@ -88,10 +54,7 @@ jobs:
               exit 1
             }
           }
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
-
+          shell: pwsh
       - name: Install wails3
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@latest
