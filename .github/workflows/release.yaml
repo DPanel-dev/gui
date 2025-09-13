@@ -54,6 +54,7 @@ jobs:
               exit 1
             }
           }
+        shell: pwsh
       - name: Install wails3
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@latest
@@ -61,10 +62,12 @@ jobs:
           echo "$env:GOPATH\bin" >> $env:GITHUB_PATH
         env:
           GOPATH: ${{ runner.workspace }}/go
+        shell: pwsh
 
       - name: Build
         run: |
           wails3 task windows:create:nsis:installer
+        shell: pwsh
 
       - name: Upload artifact
         uses: softprops/action-gh-release@v2
