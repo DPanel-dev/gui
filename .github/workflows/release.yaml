@@ -1,0 +1,34 @@
+name: release
+permissions: write-all
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  windows-build:
+    strategy:
+      matrix:
+        platform: [ 'windows-latest' ]
+        go-version: [ '1.25' ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Test Env
+        run: |
+          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
+          echo "Tag name from github.ref_name: ${{  github.ref_name }}"
+          echo "Tag name from github.ref: ${{  github.ref }}"
+          echo "Runs name: ${{runner.os}}"
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Build
+        run: |
+          wails3 task windows:create:nsis:installer
+      - name: upload artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: build/*
+          prerelease: false

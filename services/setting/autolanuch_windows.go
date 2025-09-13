@@ -3,11 +3,13 @@
 package setting
 
 import (
+	"log/slog"
+	"path/filepath"
+	"strings"
+
 	"github.com/donknap/dpanel-gui/function"
 	"golang.org/x/sys/windows/registry"
-	"strings"
 )
-import "errors"
 
 func (self *SettingService) GetAutoLaunchStatus() *function.Response {
 	regKey, err := registry.OpenKey(registry.CURRENT_USER, AutoLaunchKey, registry.READ)
@@ -25,7 +27,6 @@ func (self *SettingService) GetAutoLaunchStatus() *function.Response {
 		return function.Error(err)
 	}
 	return function.Result(values)
-	return function.Error(errors.New("only support windows"))
 }
 
 func (self *SettingService) SaveAutoLaunchStatus(status bool) *function.Response {

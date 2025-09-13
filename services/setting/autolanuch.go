@@ -1,7 +1,10 @@
+//go:build !windows
+
 package setting
 
 import (
 	"errors"
+
 	"github.com/donknap/dpanel-gui/function"
 )
 
