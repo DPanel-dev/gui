@@ -19,9 +19,12 @@ jobs:
           echo "Tag name from github.ref_name: ${{ github.ref_name }}"
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
-
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
       - uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
