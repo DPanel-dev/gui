@@ -13,8 +13,8 @@ jobs:
         continue-on-error: true
         run: |
           LATEST_ZIP=$(curl -s https://download.docker.com/win/static/stable/x86_64/ | grep -oE 'docker-[0-9.]+\.zip' | tail -n 1)
-          wget https://download.docker.com/win/static/stable/x86_64/$LATEST
-          unzip $LATEST
+          wget https://download.docker.com/win/static/stable/x86_64/$LATEST_ZIP
+          unzip $LATEST_ZIP
       - name: Download Docker Compose
         continue-on-error: true
         run: |
@@ -30,7 +30,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: resource
-          name: "Toolchains Collection"
+          name: "Resource Collection"
           body: "Pre-built toolchains for ARM, ARM64, AMD64，MUSL and Synology platforms"
           files: |
             docker/docker.exe
@@ -51,17 +51,37 @@ jobs:
           echo "Tag name from github.ref_name: ${{ github.ref_name }}"
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
+
       - uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+
+      # 👇 修复后的下载资源步骤
       - name: Download Resource
         run: |
-          BASE_URL="https://github.com/donknap/dpanel-gui/releases/download/resource"
-          curl -L -o build/windows/resource/docker.exe        "$BASE_URL/docker.exe"
-          curl -L -o build/windows/resource/docker-compose.exe "$BASE_URL/docker-compose.exe"
-          curl -L -o build/windows/resource/dpanel.exe         "$BASE_URL/dpanel.exe"
+          $baseUrl = "https://github.com/donknap/dpanel-gui/releases/download/resource"
+          New-Item -ItemType Directory -Path "build\windows\resource" -Force
+
+          $files = @(
+            @{ url = "$baseUrl/docker.exe";        out = "build\windows\resource\docker.exe" },
+            @{ url = "$baseUrl/docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" },
+            @{ url = "$baseUrl/dpanel.exe";         out = "build\windows\resource\dpanel.exe" }
+          )
+
+          foreach ($file in $files) {
+            Write-Host "Downloading $($file.url)..."
+            Invoke-WebRequest -Uri $file.url -OutFile $file.out -ErrorAction Stop
+            if (Test-Path $file.out) {
+              Write-Host "✅ Downloaded: $($file.out)"
+            } else {
+              throw "❌ Failed to download: $($file.url)"
+            }
+          }
+        shell: pwsh
+
       - name: Install wails3
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@latest
@@ -69,13 +89,13 @@ jobs:
           echo "$env:GOPATH\bin" >> $env:GITHUB_PATH
         env:
           GOPATH: ${{ runner.workspace }}/go
-          PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
+        shell: pwsh
+
       - name: Build
         run: |
           wails3 task windows:create:nsis:installer
-        env:
-          GOPATH: ${{ runner.workspace }}/go
-          PATH: ${{ runner.workspace }}/go/bin:${{ env.PATH }}
+        shell: pwsh
+
       - name: Upload artifact
         uses: softprops/action-gh-release@v2
         with:
