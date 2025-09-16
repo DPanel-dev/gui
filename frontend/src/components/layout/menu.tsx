@@ -121,7 +121,7 @@ export default function Menu() {
       </li>
       <li className='mt-5'></li>
       <li className='items-center cursor-pointer' onClick={async () => {
-        await runtime.Browser.OpenURL("https://dpanel.cc/manual/system-desktop")
+        await runtime.Browser.OpenURL("https://dpanel.cc/install/desktop")
       }}>
         <div
           className="p-4 fill-base-content"
