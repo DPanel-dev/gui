@@ -82,6 +82,9 @@ export default function ConsolePage() {
 
     setTimeout(() => {
       SettingService.GetApp(id).then(res => {
+        if (res?.RunOption.AutoLaunch) {
+          runProcess(res.Name, res.RunOption)
+        }
         LogService.Info("js get config", "config", res)
         if (!res) {
           systemError("未找到当前应用的配置，请完善 setting.json 后重新运行")

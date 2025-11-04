@@ -99,7 +99,8 @@ func main() {
 			if v := settingService.GetAll(); v.Apps != nil {
 				for _, item := range v.Apps {
 					if item.RunOption.AutoLaunch {
-						go self.Run(item.Name, item.RunOption)
+						// 这里启动程序如果有错误可能会影响整个程序的启动
+						//go self.Run(item.Name, item.RunOption)
 					}
 				}
 			}
