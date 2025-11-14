@@ -22,7 +22,7 @@ jobs:
           echo "Tag name from github.ref_name: ${{ github.ref_name }}"
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
-          & makensis --version
+          & "C:\Program Files (x86)\NSIS\makensis.exe" --version
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
