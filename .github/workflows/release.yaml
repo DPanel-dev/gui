@@ -24,11 +24,6 @@ jobs:
           # 3. 直接设置环境变量
           $env:PATH = $newPath
           echo "PATH updated: $env:PATH"
-
-      - name: Test makensis
-        run: |
-          echo "Current PATH:"
-          echo $env:PATH
           makensis /VERSION
       - name: Setup Node.js
         uses: actions/setup-node@v4
