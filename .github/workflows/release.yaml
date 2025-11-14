@@ -16,6 +16,7 @@ jobs:
       - name: Install NSIS
         run: |
           winget install NSIS.NSIS --source winget --silent
+          echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
       - name: Test Env
         run: |
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
@@ -23,6 +24,7 @@ jobs:
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
           & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
+          makensis /VERSION
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
