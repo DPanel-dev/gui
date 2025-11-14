@@ -9,25 +9,18 @@ jobs:
   windows-build:
     strategy:
       matrix:
-        platform: [ 'windows-latest' ]
-        go-version: [ '1.25' ]
+        platform: ['windows-latest']
+        go-version: ['1.25']
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Install NSIS
+        run: winget install NSIS.NSIS --source winget --silent
+      - name: Add NSIS to PATH
+        run: echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
+      - name: Test makensis
         run: |
-          winget install NSIS.NSIS --source winget --silent
-          echo "C:\\Program Files (x86)\\NSIS" >> $GITHUB_PATH
-      - name: Test Env
-        run: |
-          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-          echo "Tag name from github.ref_name: ${{ github.ref_name }}"
-          echo "Tag name from github.ref: ${{ github.ref }}"
-          echo "Runner OS: ${{ runner.os }}"
-          & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
-      - name: Add NSIS to PATH  # ✅ 新增独立步骤
-        run: echo "C:\\Program Files (x86)\\NSIS" >> $GITHUB_PATH
-      - name: Test makensis  # ✅ 在新步骤中使用
-        run: makensis /VERSION
+          echo "PATH: %PATH%"
+          makensis /VERSION
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
