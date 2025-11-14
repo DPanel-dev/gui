@@ -24,7 +24,10 @@ jobs:
           echo "Tag name from github.ref: ${{ github.ref }}"
           echo "Runner OS: ${{ runner.os }}"
           & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
-          makensis /VERSION
+      - name: Add NSIS to PATH  # ✅ 新增独立步骤
+        run: echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
+      - name: Test makensis  # ✅ 在新步骤中使用
+        run: makensis /VERSION
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
