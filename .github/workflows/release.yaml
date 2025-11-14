@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Install NSIS
         run: |
-          winget install NSIS.NSIS --silent
+          winget install NSIS.NSIS --source winget --silent
       - name: Test Env
         run: |
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
