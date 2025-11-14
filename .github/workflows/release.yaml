@@ -15,13 +15,20 @@ jobs:
     steps:
       - name: Install NSIS
         run: winget install NSIS.NSIS --source winget --silent
-
-      - name: Add NSIS to PATH
-        run: echo "C:\\Program Files ^(^x86^)\\NSIS" >> $GITHUB_PATH
-
-      - name: Verify makensis
+      - name: Set NSIS PATH (Directly)
         run: |
-          echo "PATH: $env:PATH"
+          # 1. 获取当前 PATH
+          $currentPath = $env:PATH
+          # 2. 添加 NSIS 路径（括号不用转义！）
+          $newPath = "C:\Program Files (x86)\NSIS;$currentPath"
+          # 3. 直接设置环境变量
+          $env:PATH = $newPath
+          echo "PATH updated: $env:PATH"
+
+      - name: Test makensis
+        run: |
+          echo "Current PATH:"
+          echo $env:PATH
           makensis /VERSION
       - name: Setup Node.js
         uses: actions/setup-node@v4
