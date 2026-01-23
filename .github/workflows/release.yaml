@@ -123,7 +123,7 @@ jobs:
           cp build/windows/resource/docker.exe dpanel-desktop/apps/dpanel/
           cp build/windows/resource/docker-compose.exe dpanel-desktop/apps/dpanel/
           
-          7z a bin/dpanel-desktop-portable.zip dpanel-desktop
+          7z a bin/dpanel-desktop-amd64-portable.zip dpanel-desktop
       # ==============================
       # 5. 上传到当前仓库 Release
       # ==============================
