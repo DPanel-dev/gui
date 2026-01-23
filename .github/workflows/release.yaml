@@ -111,7 +111,19 @@ jobs:
         shell: pwsh
         run: |
           wails3 task windows:create:nsis:installer
-
+      - name: Build Portable
+        shell: bash
+        run: |
+          mkdir -p temp_pack/apps/dpanel
+          cp bin/dpanel-desktop.exe temp_pack/
+          cp build/windows/resource/setting.default.json temp_pack/setting.json
+          
+          cp build/windows/resource/dpanel.exe temp_pack/apps/dpanel/
+          cp build/windows/resource/docker.exe temp_pack/apps/dpanel/
+          cp build/windows/resource/docker-compose.exe temp_pack/apps/dpanel/
+          
+          cd temp_pack
+          zip a ../bin/dpanel-desktop-portable.zip *
       # ==============================
       # 5. 上传到当前仓库 Release
       # ==============================
