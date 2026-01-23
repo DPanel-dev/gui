@@ -123,7 +123,7 @@ jobs:
           cp build/windows/resource/docker-compose.exe temp_pack/apps/dpanel/
           
           cd temp_pack
-          zip a ../bin/dpanel-desktop-portable.zip *
+          7z a ../bin/dpanel-desktop-portable.zip *
       # ==============================
       # 5. 上传到当前仓库 Release
       # ==============================
