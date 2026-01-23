@@ -17,8 +17,12 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/services/kvstore"
 )
 
+const (
+	DefaultFileName = "setting.json"
+)
+
 func New(config *Config) *SettingService {
-	kvStoreServiceConfigFile := filepath.Join(config.WorkDir, "setting.json")
+	kvStoreServiceConfigFile := filepath.Join(config.WorkDir, DefaultFileName)
 	kvStoreService := kvstore.NewWithConfig(&kvstore.Config{
 		Filename: kvStoreServiceConfigFile,
 		AutoSave: true,
