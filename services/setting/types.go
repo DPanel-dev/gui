@@ -5,7 +5,7 @@ import "github.com/donknap/dpanel-gui/services/process"
 const AutoLaunchKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 type Config struct {
-	WorkDir        string
+	Path           string
 	DefaultSetting AllSetting
 }
 

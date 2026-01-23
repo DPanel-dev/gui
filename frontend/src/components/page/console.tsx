@@ -92,8 +92,7 @@ export default function ConsolePage() {
         }
         runtime.Events.Off(eventName)
         runtime.Events.On(eventName, (e) => {
-          console.log(e)
-          const message = e.data && Array.isArray(e.data) ? (e.data[0] as ProcessEventMessage) : null;
+          const message = e.data
           if (message && message.Status) {
             setStatus(String(message.Status.trim()))
           }
@@ -101,6 +100,7 @@ export default function ConsolePage() {
             terminal.write(message.Log)
           }
         })
+
         ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
           console.log("get process status", message);
 

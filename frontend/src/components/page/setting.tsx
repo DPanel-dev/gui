@@ -4,10 +4,10 @@ import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
 import {
-  AllSetting,
-  App,
-  EnvironmentItem,
-  SettingService
+    AllSetting,
+    App,
+    EnvironmentItem,
+    SettingService
 } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 import * as runtime from '@wailsio/runtime'
 import { EventSystemTheme } from '../../types/type'
@@ -173,7 +173,7 @@ export default function SettingPage() {
           }))
 
           if (formData.theme) {
-            runtime.Events.Emit({
+            runtime.Events.Emit(EventSystemTheme, {
               name: EventSystemTheme,
               data: formData.theme
             })

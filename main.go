@@ -50,13 +50,16 @@ func main() {
 
 	userHomeDir, _ := os.UserHomeDir()
 	homeDir := filepath.Join(userHomeDir, ".dpanel")
+	settingPath := filepath.Join(homeDir, setting.DefaultFileName)
 
 	// 数据存储目录，优先判断当前目录是否存在 setting.json , 优先使用
 	if _, err := os.Stat(filepath.Join(workDir, setting.DefaultFileName)); err == nil {
 		homeDir = filepath.Join(workDir, "data")
+		settingPath = filepath.Join(workDir, setting.DefaultFileName)
 	}
 	_ = os.Setenv(function.EnvHomeDir, homeDir)
 
+	slog.Debug("main", "data", homeDir, "work", workDir, "setting", settingPath)
 	_ = os.Mkdir(homeDir, os.ModePerm)
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -92,7 +95,7 @@ func main() {
 	}
 
 	settingService := setting.New(&setting.Config{
-		WorkDir:        homeDir,
+		Path:           settingPath,
 		DefaultSetting: defaultSetting,
 	})
 	app.RegisterService(application.NewService(settingService))
