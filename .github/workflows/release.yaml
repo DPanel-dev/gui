@@ -114,16 +114,16 @@ jobs:
       - name: Build Portable
         shell: bash
         run: |
-          mkdir -p temp_pack/apps/dpanel
-          cp bin/dpanel-desktop.exe temp_pack/
-          cp build/windows/resource/setting.default.json temp_pack/setting.json
+          mkdir -p dpanel-desktop/apps/dpanel
           
-          cp build/windows/resource/dpanel.exe temp_pack/apps/dpanel/
-          cp build/windows/resource/docker.exe temp_pack/apps/dpanel/
-          cp build/windows/resource/docker-compose.exe temp_pack/apps/dpanel/
+          cp bin/dpanel-desktop.exe dpanel-desktop/
+          cp build/windows/resource/setting.default.json dpanel-desktop/setting.json
           
-          cd temp_pack
-          7z a ../bin/dpanel-desktop-portable.zip *
+          cp build/windows/resource/dpanel.exe dpanel-desktop/apps/dpanel/
+          cp build/windows/resource/docker.exe dpanel-desktop/apps/dpanel/
+          cp build/windows/resource/docker-compose.exe dpanel-desktop/apps/dpanel/
+          
+          7z a bin/dpanel-desktop-portable.zip dpanel-desktop
       # ==============================
       # 5. 上传到当前仓库 Release
       # ==============================
