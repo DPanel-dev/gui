@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         platform: ['windows-latest']
-        go-version: ['1.22'] # wails3 推荐 1.21+
+        go-version: ['1.25']
     runs-on: ${{ matrix.platform }}
     steps:
       # ==============================
@@ -29,7 +29,11 @@ jobs:
 
       - name: Set NSIS PATH
         run: |
+          $currentPath = $env:PATH
+          $newPath = "C:\Program Files (x86)\NSIS;$currentPath"
+          $env:PATH = $newPath
           echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+          echo "PATH updated: $env:PATH"
           makensis /VERSION
 
       - name: Setup Node.js
@@ -75,6 +79,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         shell: pwsh
         run: |
+          makensis /VERSION
           $headers = @{}
           $files = @(
             @{ url = "https://github.com/donknap/dpanel/releases/download/docker-cli-v1/docker-windows-x86_64.exe"; out = "build\windows\resource\docker.exe" },
