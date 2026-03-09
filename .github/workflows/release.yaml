@@ -48,11 +48,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-          cache: true  # 修正了之前的缩进错误
-
-      # ==============================
-      # 2. 缓存并安装 Wails v3
-      # ==============================
+          cache: true 
       - name: Get current date for Wails cache
         id: date
         run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
@@ -71,9 +67,6 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
 
-      # ==============================
-      # 3. 下载外部资源
-      # ==============================
       - name: Download Resource
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
@@ -82,8 +75,8 @@ jobs:
           makensis /VERSION
           $headers = @{}
           $files = @(
-            @{ url = "https://github.com/donknap/dpanel/releases/download/docker-cli-v1/docker-windows-x86_64.exe"; out = "build\windows\resource\docker.exe" },
-            @{ url = "https://github.com/donknap/dpanel/releases/download/docker-cli-v1/docker-compose-windows-x86_64.exe"; out = "build\windows\resource\docker-compose.exe" },
+            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker.exe"; out = "build\windows\resource\docker.exe" },
+            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" },
             @{ url = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel.exe"; out = "build\windows\resource\dpanel.exe" }
           )
 
@@ -104,9 +97,6 @@ jobs:
             }
           }
 
-      # ==============================
-      # 4. 构建安装包
-      # ==============================
       - name: Build Installer
         shell: pwsh
         run: |
@@ -124,9 +114,7 @@ jobs:
           cp build/windows/resource/docker-compose.exe dpanel-desktop/apps/dpanel/
           
           7z a bin/dpanel-desktop-amd64-portable.zip dpanel-desktop
-      # ==============================
-      # 5. 上传到当前仓库 Release
-      # ==============================
+
       - name: Upload Release to Current Repo
         uses: softprops/action-gh-release@v2
         with:
@@ -134,9 +122,6 @@ jobs:
           files: bin/*
           prerelease: false
 
-      # ==============================
-      # 6. 直接上传到 donknap/dpanel Release (替代 Artifact)
-      # ==============================
       - name: Upload to donknap/dpanel Release
         env:
           GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # 必须包含写权限的 PAT
