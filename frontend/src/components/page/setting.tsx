@@ -4,10 +4,10 @@ import IconFolderOpen from '@renderer/assets/folder-open.svg'
 import { useForm } from 'react-hook-form'
 import Toast, { ToastRefType } from '../message/toast'
 import {
-    AllSetting,
-    App,
-    EnvironmentItem,
-    SettingService
+  AllSetting,
+  App,
+  EnvironmentItem,
+  SettingService
 } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 import * as runtime from '@wailsio/runtime'
 import { EventSystemTheme } from '../../types/type'
@@ -211,6 +211,7 @@ export default function SettingPage() {
             <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
             <fieldset className="fieldset rounded-box flex gap-5">
               {item.Setting?.Environment && Object.entries(item.Setting.Environment).map(([name, value]: [string, EnvironmentItem]) => {
+                if (!value) return null;
                 return <label className="floating-label mb-3 tooltip" data-tip={value.Description} key={`label-${item.Name}-${name}`}>
                   <span>{name}</span>
                   <input type="text" {...form.register(`setting.environment.${item.Name}.${name}`)} placeholder={name} className="input w-xs" />
