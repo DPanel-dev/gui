@@ -210,7 +210,7 @@ export default function SettingPage() {
           return item.Setting?.Environment && <fieldset key={`fieldset-${item.Name}`} className="fieldset bg-base-100/60 border-base-300 rounded-box border p-4">
             <legend className="fieldset-legend">环境变量 - {item.Name}</legend>
             <fieldset className="fieldset rounded-box flex gap-5">
-              {item.Setting?.Environment && Object.entries(item.Setting.Environment).map(([name, value]: [string, EnvironmentItem]) => {
+              {item.Setting?.Environment && Object.entries(item.Setting.Environment).map(([name, value]) => {
                 if (!value) return null;
                 return <label className="floating-label mb-3 tooltip" data-tip={value.Description} key={`label-${item.Name}-${name}`}>
                   <span>{name}</span>
