@@ -74,6 +74,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Get current date for Wails cache
+        id: date
+        run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
+
+      - name: Cache wails3 CLI
+        id: cache-wails
+        uses: actions/cache@v4
+        with:
+          path: ~\go\bin\wails3.exe
+          key: ${{ runner.os }}-wails3-${{ steps.date.outputs.date }}
+
+      - name: Install wails3
+        if: steps.cache-wails.outputs.cache-hit != 'true'
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Add Go bin to PATH
+        run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
+
       - name: Cache NSIS
         id: cache-nsis
         uses: actions/cache@v4
@@ -128,8 +157,7 @@ jobs:
       - name: Build Installer
         shell: pwsh
         run: |
-          cd build/windows/nsis
-          makensis -DARG_WAILS_AMD64_BINARY="..\..\..\bin\dpanel-desktop.exe" project.nsi
+          wails3 task windows:create:nsis:installer
 
       - name: Rename Installer
         shell: pwsh
