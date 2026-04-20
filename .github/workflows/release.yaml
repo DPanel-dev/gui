@@ -244,7 +244,7 @@ jobs:
         run: |
           mkdir -p bin
           gh release download ${{ github.ref_name }} -D bin --repo ${{ github.repository }}
-            --exclude "dpanel-desktop.exe"
+          rm -f bin/dpanel-desktop.exe
 
       - name: Install coscli
         run: |
