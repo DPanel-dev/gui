@@ -9,9 +9,8 @@ jobs:
   windows-build-and-release:
     strategy:
       matrix:
-        platform: ['windows-latest']
-        go-version: ['1.25']
-    runs-on: ${{ matrix.platform }}
+        edition: ['ce', 'pe']
+    runs-on: windows-latest
     steps:
       # ==============================
       # 1. 环境准备与缓存
@@ -47,8 +46,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-          cache: true 
+          go-version: '1.25'
+          cache: true
       - name: Get current date for Wails cache
         id: date
         run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
@@ -67,17 +66,19 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
 
-      - name: Download Resource
+      # ==============================
+      # 2. 下载资源
+      # ==============================
+      - name: Download Resources
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         shell: pwsh
         run: |
-          makensis /VERSION
           $headers = @{}
           $files = @(
             @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker.exe"; out = "build\windows\resource\docker.exe" },
             @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" },
-            @{ url = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel.exe"; out = "build\windows\resource\dpanel.exe" }
+            @{ url = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel-${{ matrix.edition }}-windows-amd64.exe"; out = "build\windows\resource\dpanel.exe" }
           )
 
           New-Item -ItemType Directory -Path "build\windows\resource" -Force
@@ -112,8 +113,16 @@ jobs:
           cp build/windows/resource/dpanel.exe dpanel-desktop/apps/dpanel/
           cp build/windows/resource/docker.exe dpanel-desktop/apps/dpanel/
           cp build/windows/resource/docker-compose.exe dpanel-desktop/apps/dpanel/
-          
-          7z a bin/dpanel-desktop-amd64-portable.zip dpanel-desktop
+
+          7z a bin/dpanel-desktop-${{ matrix.edition }}-amd64-portable.zip dpanel-desktop
+
+      - name: Rename Installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "bin\*installer.exe" | Select-Object -First 1
+          if ($installer) {
+            Rename-Item $installer.FullName "dpanel-desktop-${{ matrix.edition }}-amd64-installer.exe"
+          }
 
       - name: Upload Release to Current Repo
         uses: softprops/action-gh-release@v2
@@ -124,7 +133,7 @@ jobs:
 
       - name: Upload to donknap/dpanel Release
         env:
-          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # 必须包含写权限的 PAT
+          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
