@@ -261,7 +261,6 @@ jobs:
             base:
               secretid: ${COS_SECRET_ID}
               secretkey: ${COS_SECRET_KEY}
-              endpoint: cos.ap-shanghai.myqcloud.com
           EOF
 
       - name: Upload to COS
@@ -269,6 +268,6 @@ jobs:
           for file in bin/*; do
             filename=$(basename "$file")
             echo "Uploading to COS: $filename"
-            ./coscli cp "$file" "cos://we7cloud-10016060/dpanel/release/$filename"
+            ./coscli cp -e cos.ap-shanghai.myqcloud.com "$file" "cos://we7cloud-10016060/dpanel/release/$filename"
           done
           echo "All files uploaded to COS"
