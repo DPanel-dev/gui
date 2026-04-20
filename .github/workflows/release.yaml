@@ -265,9 +265,6 @@ jobs:
 
       - name: Upload to COS
         run: |
-          for file in bin/*; do
-            filename=$(basename "$file")
-            echo "Uploading to COS: $filename"
-            ./coscli cp -e cos.ap-shanghai.myqcloud.com "$file" "cos://we7cloud-10016060/dpanel/release/$filename"
-          done
+          ls -lh bin
+          ./coscli cp -e cos.ap-shanghai.myqcloud.com bin/ cos://we7cloud-10016060/dpanel/release/ -r --part-size 10 --routines 20
           echo "All files uploaded to COS"
