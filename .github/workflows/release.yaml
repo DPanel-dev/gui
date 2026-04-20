@@ -10,7 +10,7 @@ jobs:
   # Job 1: 交叉编译 Desktop 程序（Ubuntu）
   # ==============================
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,22 +28,25 @@ jobs:
 
       - name: Get current date for Wails cache
         id: date
-        run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+        run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
 
       - name: Cache wails3 CLI
         id: cache-wails
         uses: actions/cache@v4
         with:
-          path: ~/go/bin/wails3
+          path: ~\go\bin\wails3.exe
           key: ${{ runner.os }}-wails3-${{ steps.date.outputs.date }}
 
       - name: Install wails3
         if: steps.cache-wails.outputs.cache-hit != 'true'
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
-      - name: Build Desktop App (cross-compile for Windows)
+      - name: Add Go bin to PATH
+        run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
+
+      - name: Build Desktop App
+        shell: pwsh
         run: |
-          export PATH="$HOME/go/bin:$PATH"
           wails3 task windows:build PRODUCTION=true
 
       - name: Upload to Release
