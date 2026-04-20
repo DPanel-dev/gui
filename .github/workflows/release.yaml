@@ -261,6 +261,7 @@ jobs:
             base:
               secretid: ${COS_SECRET_ID}
               secretkey: ${COS_SECRET_KEY}
+              endpoint: cos.ap-shanghai.myqcloud.com
           EOF
 
       - name: Upload to COS
