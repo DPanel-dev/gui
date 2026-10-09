@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -76,7 +75,7 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
 	defaultSetting := setting.AllSetting{}
@@ -172,16 +171,13 @@ func main() {
 	}
 	trayMenu := application.NewMenu()
 	viewMenu := trayMenu.Add("Go to the Dashboard")
-	viewMenu.OnClick(func(c *application.Context) {
+	showMainWindow := func() {
 		mainWindow.Show()
 		mainWindow.Restore()
 		mainWindow.Focus()
-		// 这里需要一直等待到主窗口显示出来才可以
-		for !mainWindow.IsVisible() {
-			fmt.Printf("go to dasboard %v \n", mainWindow.IsVisible())
-			time.Sleep(time.Millisecond * 100)
-		}
-		app.Show()
+	}
+	viewMenu.OnClick(func(c *application.Context) {
+		showMainWindow()
 	})
 	trayMenu.AddSeparator()
 	trayMenu.Add("Documentation").OnClick(func(c *application.Context) {
@@ -196,21 +192,21 @@ func main() {
 	systray := app.SystemTray.New()
 	systray.SetTemplateIcon(icon)
 	systray.SetMenu(trayMenu)
+	systray.OnDoubleClick(showMainWindow)
 
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		allConfig := settingService.GetAll()
 		if !allConfig.System.CloseWindowHide {
-			systray.Destroy()
+			if runtime.GOOS == "darwin" {
+				event.Cancel()
+				app.Quit()
+			} else {
+				systray.Destroy()
+			}
 			return
 		}
-		//mainWindow.Minimise()
-		if runtime.GOOS == "windows" {
-			app.Hide()
-		} else {
-			//@todo Mac 系统隐藏窗口后会报错
-			mainWindow.Minimise()
-		}
 		event.Cancel()
+		mainWindow.Hide()
 	})
 
 	// Run the application. This blocks until the application has been exited.
