@@ -176,6 +176,11 @@ func main() {
 		mainWindow.Restore()
 		mainWindow.Focus()
 	}
+	if runtime.GOOS == "darwin" {
+		app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
+			showMainWindow()
+		})
+	}
 	viewMenu.OnClick(func(c *application.Context) {
 		showMainWindow()
 	})
