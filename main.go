@@ -16,6 +16,7 @@ import (
 	"github.com/donknap/dpanel-gui/services/setting"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/dock"
 	log2 "github.com/wailsapp/wails/v3/pkg/services/log"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
@@ -114,6 +115,12 @@ func main() {
 	})
 	app.RegisterService(application.NewService(processService))
 
+	var dockService *dock.DockService
+	if runtime.GOOS == "darwin" {
+		dockService = dock.New()
+		app.RegisterService(application.NewService(dockService))
+	}
+
 	if runtime.GOOS == "windows" {
 		notificationService := notifications.New()
 		app.RegisterService(application.NewService(notificationService))
@@ -172,6 +179,9 @@ func main() {
 	trayMenu := application.NewMenu()
 	viewMenu := trayMenu.Add("Go to the Dashboard")
 	showMainWindow := func() {
+		if dockService != nil {
+			dockService.ShowAppIcon()
+		}
 		mainWindow.Show()
 		mainWindow.Restore()
 		mainWindow.Focus()
@@ -212,6 +222,9 @@ func main() {
 		}
 		event.Cancel()
 		mainWindow.Hide()
+		if dockService != nil {
+			dockService.HideAppIcon()
+		}
 	})
 
 	// Run the application. This blocks until the application has been exited.

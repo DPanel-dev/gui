@@ -357,10 +357,11 @@ jobs:
                 echo "Release tag $RELEASE_TAG does not match the cask server version $cask_server_version" >&2
                 exit 1
               fi
-              revision="$(date -u +%s)"
+              revision="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
               current_revision_number=$((10#$cask_revision))
               if (( revision <= current_revision_number )); then
-                revision="$((current_revision_number + 1))"
+                previous_revision_epoch="$(TZ=Asia/Shanghai date -d "${cask_revision:0:4}-${cask_revision:4:2}-${cask_revision:6:2} ${cask_revision:8:2}:${cask_revision:10:2}:00" +%s)"
+                revision="$(TZ=Asia/Shanghai date -d "@$((previous_revision_epoch + 60))" +%Y%m%d%H%M)"
               fi
               version="$cask_server_version,$revision"
             elif [[ "$cask_version" != "$current_version" ]]; then
