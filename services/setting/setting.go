@@ -68,7 +68,6 @@ func (self *SettingService) GetAll() AllSetting {
 	_ = self.kvStoreService.Load()
 	if data := self.kvStoreService.Get(""); data != nil {
 		if dataStr, err := json.Marshal(data); err == nil {
-			slog.Info("config get data", "data", string(dataStr))
 			config := AllSetting{}
 			err = json.Unmarshal(dataStr, &config)
 			if err != nil {

@@ -31,7 +31,6 @@
     }
   ],
   "System": {
-    "AutoLaunch": false,
     "CloseWindowHide": false,
     "Theme": "light"
   }

@@ -1,104 +1,157 @@
 package tests
 
 import (
-	"bufio"
-	"context"
-	_ "embed"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/donknap/dpanel-gui/function"
+	"github.com/donknap/dpanel-gui/services/process"
 )
 
-func TestCommand(t *testing.T) {
-	path := "D:\\Workspace\\dpanel-gui-wails-v3\\bin\\nginx-1.29.1\\nginx.exe"
-	rootPath := "D:\\Workspace\\dpanel-gui-wails-v3\\bin\\"
-	println(path)
-	cmd := exec.Command(path)
-	if !filepath.IsAbs(path) {
-		cmd.Dir = rootPath
-	} else {
-		cmd.Dir = filepath.Dir(path)
+func TestProcessHelper(t *testing.T) {
+	if os.Getenv("DPANEL_TEST_HELPER") != "1" {
+		return
 	}
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		panic(err)
+	switch os.Getenv("DPANEL_TEST_MODE") {
+	case "environment":
+		fmt.Printf("CUSTOM_VALUE=%s\nDP_WORK_DIR=%s\nDATA_PATH=%s\n", os.Getenv("CUSTOM_VALUE"), os.Getenv(function.EnvWorkDir), os.Getenv("DATA_PATH"))
+	case "path":
+		fmt.Println("PATH_HELPER_OK")
+	default:
+		fmt.Println(strings.Repeat("x", 70*1024))
 	}
-	println(string(out))
+	if os.Getenv("DPANEL_TEST_WAIT") == "1" {
+		time.Sleep(30 * time.Second)
+	}
 }
 
-func TestEnv(t *testing.T) {
-
-	fmt.Printf("TestEnv %v \n", os.Getenv("PATH"))
-	return
-	appEnv := []string{
-		"DP_WORK_DIR=/User/test",
-		"APP_SERVER_PORT=8086",
-		"STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
+func TestProcessNaturalExit(t *testing.T) {
+	t.Setenv("DPANEL_TEST_HELPER", "1")
+	service := testService(t)
+	if !service.Run("helper", testOption(t)) {
+		t.Fatal("helper did not start")
 	}
-	//runEnv := os.Environ()
-	appEnvMap, err := godotenv.Unmarshal(strings.Join(appEnv, "\n"))
-	if err != nil {
-		panic(err)
+	status := waitForProcessExit(t, service, "helper")
+	if status.Status != process.StatusStopped || len(status.Log) < 70*1024 {
+		t.Fatalf("unexpected status %q or truncated log length %d", status.Status, len(status.Log))
 	}
-	envStr, err := godotenv.Marshal(appEnvMap)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("TestEnv %v \n", envStr)
-
-	a := "http://127.0.0.1:${APP_SERVER_PORT}"
-	fmt.Printf("TestEnv %v \n", os.Expand(a, func(s string) string {
-		return appEnvMap[s]
-	}))
-	fmt.Printf("TestEnv %v \n", a)
-
-	//systemEnv := os.Environ()
-	//fmt.Printf("TestEnv %v \n", systemEnv)
-	testEnv := `
-DP_WORK_DIR=C:\\User
-TEST=${DB_WORK_DIR}\\test
-CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
-`
-	appEnvMap1, err := godotenv.Unmarshal(testEnv)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("TestEnv %v \n", appEnvMap1)
+	service.Stop("helper")
 }
 
-func TestRunProcess(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		cancel()
-	}()
-	cmd := exec.CommandContext(ctx, "/Users/renchao/Workspace/go/dpanel/bin/dpanel")
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		panic(err)
+func TestProcessStopAndDuplicateRun(t *testing.T) {
+	t.Setenv("DPANEL_TEST_HELPER", "1")
+	t.Setenv("DPANEL_TEST_WAIT", "1")
+	service := testService(t)
+	option := testOption(t)
+	if !service.Run("helper", option) {
+		t.Fatal("helper did not start")
 	}
-	cmd.Stderr = cmd.Stdout
-	if err = cmd.Start(); err != nil {
-		panic(err)
+	first := service.GetProcessStatus("helper").Status
+	if !service.Run("helper", option) || service.GetProcessStatus("helper").Status != first {
+		t.Fatal("duplicate run started another process")
 	}
+	done := make(chan struct{})
 	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			fmt.Printf("Anonymous function %v \n", err)
-		}
+		service.Stop("helper")
+		service.Stop("helper")
+		close(done)
 	}()
-
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasSuffix(line, "\n") {
-			line = line + "\n"
-		}
-		fmt.Printf("TestRunProcess %v \n", line)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("stop did not finish")
 	}
+	if status := service.GetProcessStatus("helper"); status.Status != process.StatusStopped {
+		t.Fatalf("status after stop = %q", status.Status)
+	}
+}
 
+func TestProcessStartFailure(t *testing.T) {
+	service := testService(t)
+	option := process.RunOption{WorkDir: t.TempDir(), StartCommand: "./missing-program"}
+	if service.Run("missing", option) {
+		t.Fatal("missing command unexpectedly started")
+	}
+	service.Stop("missing")
+	if status := service.GetProcessStatus("missing"); status.Status != process.StatusError {
+		t.Fatalf("status after start failure = %q", status.Status)
+	}
+}
+
+func TestProcessEnvironmentOverridesParent(t *testing.T) {
+	t.Setenv("DPANEL_TEST_HELPER", "1")
+	t.Setenv("DPANEL_TEST_MODE", "environment")
+	t.Setenv("CUSTOM_VALUE", "parent-value")
+	t.Setenv(function.EnvWorkDir, "parent-work-dir")
+	before := os.Getenv("PATH")
+	workDir := t.TempDir()
+	service := testService(t)
+	option := testOption(t)
+	option.WorkDir = workDir
+	option.Environment = []string{"CUSTOM_VALUE=app-value", "DATA_PATH=${DP_WORK_DIR}/data"}
+	if !service.Run("helper", option) {
+		t.Fatal("helper did not start")
+	}
+	status := waitForProcessExit(t, service, "helper")
+	if status.Status != process.StatusStopped {
+		t.Fatalf("helper status = %q, log = %q", status.Status, status.Log)
+	}
+	for _, expected := range []string{"CUSTOM_VALUE=app-value", "DP_WORK_DIR=" + workDir, "DATA_PATH=" + filepath.Join(workDir, "data")} {
+		if !strings.Contains(status.Log, expected) {
+			t.Fatalf("helper log missing %q: %q", expected, status.Log)
+		}
+	}
+	if os.Getenv("PATH") != before || os.Getenv("CUSTOM_VALUE") != "parent-value" || os.Getenv(function.EnvWorkDir) != "parent-work-dir" {
+		t.Fatal("GUI process environment changed")
+	}
+}
+
+func TestProcessCommandUsesChildPath(t *testing.T) {
+	t.Setenv("DPANEL_TEST_HELPER", "1")
+	t.Setenv("DPANEL_TEST_MODE", "path")
+	service := testService(t)
+	option := process.RunOption{
+		WorkDir:      t.TempDir(),
+		StartCommand: fmt.Sprintf("%q -test.run=TestProcessHelper$", filepath.Base(os.Args[0])),
+		Environment:  []string{"PATH=" + filepath.Dir(os.Args[0])},
+	}
+	if !service.Run("path-helper", option) {
+		t.Fatal("helper was not found using the child PATH")
+	}
+	status := waitForProcessExit(t, service, "path-helper")
+	if status.Status != process.StatusStopped || !strings.Contains(status.Log, "PATH_HELPER_OK") {
+		t.Fatalf("helper status = %q, log = %q", status.Status, status.Log)
+	}
+}
+
+func testService(t *testing.T) *process.ProcessService {
+	t.Helper()
+	service := process.New(&process.Config{})
+	t.Cleanup(func() { _ = service.ServiceShutdown() })
+	return service
+}
+
+func testOption(t *testing.T) process.RunOption {
+	t.Helper()
+	return process.RunOption{WorkDir: t.TempDir(), StartCommand: fmt.Sprintf("%q -test.run=TestProcessHelper$", os.Args[0])}
+}
+
+func waitForProcessExit(t *testing.T, service *process.ProcessService, name string) process.ProcessEventMessage {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	for {
+		status := service.GetProcessStatus(name)
+		if status.Status == process.StatusStopped || status.Status == process.StatusError {
+			return status
+		}
+		select {
+		case <-time.After(10 * time.Millisecond):
+		case <-deadline:
+			t.Fatalf("process %q did not exit; status = %q", name, status.Status)
+		}
+	}
 }

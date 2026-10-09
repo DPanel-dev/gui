@@ -2,19 +2,15 @@ package process
 
 import (
 	"context"
-	"log/slog"
-	"os"
+	"io"
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-const (
-	EventMessage = "dp-process-%s"
-)
+const EventMessage = "dp-process-%s"
 
 const (
 	StatusRunning = "running"
@@ -23,51 +19,45 @@ const (
 )
 
 type Process struct {
-	Name        string
-	cmd         *exec.Cmd
-	ctx         context.Context
-	ctxCancel   context.CancelFunc
-	logs        []string
-	max         int
-	mu          sync.Mutex
-	StopHandler func()
-	stopDone    chan bool
+	Name          string
+	cmd           *exec.Cmd
+	output        io.ReadCloser
+	ctxCancel     context.CancelFunc
+	stopCommand   func()
+	stopOnce      sync.Once
+	done          chan struct{}
+	max           int
+	mu            sync.Mutex
+	logs          []string
+	status        string
+	stopRequested bool
 }
 
-func (self *Process) SaveLog(line string) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	if len(self.logs) == self.max {
-		self.logs = self.logs[1:]
+func (process *Process) SaveLog(line string) {
+	process.mu.Lock()
+	defer process.mu.Unlock()
+	if len(process.logs) >= process.max {
+		process.logs = process.logs[1:]
 	}
-	self.logs = append(self.logs, line)
-	slog.Debug("process service save log", "length", len(self.logs))
+	process.logs = append(process.logs, line)
 }
 
-func (self *Process) GetLog() string {
-	return strings.Join(self.logs, "")
+func (process *Process) GetLog() string {
+	process.mu.Lock()
+	defer process.mu.Unlock()
+	return strings.Join(process.logs, "")
 }
 
-func (self *Process) Close() {
-	if self.StopHandler != nil {
-		self.StopHandler()
-	}
-	if self.cmd != nil && self.cmd.Process != nil {
-		err := self.cmd.Process.Kill()
-		if err != nil {
-			slog.Info("process service process kill ", "err", err)
-		}
-		err = self.cmd.Process.Signal(syscall.SIGTERM)
-		if err != nil {
-			slog.Info("process service process signal ", "err", err)
-		}
-		err = self.cmd.Process.Signal(os.Interrupt)
-		if err != nil {
-			slog.Info("process service process signal", "err", err)
-		}
-		self.cmd = nil
-	}
-	self.ctxCancel()
+func (process *Process) snapshot() ProcessEventMessage {
+	process.mu.Lock()
+	defer process.mu.Unlock()
+	return ProcessEventMessage{Status: process.status, Log: strings.Join(process.logs, "")}
+}
+
+func (process *Process) running() bool {
+	process.mu.Lock()
+	defer process.mu.Unlock()
+	return strings.HasPrefix(process.status, StatusRunning)
 }
 
 type Config struct {

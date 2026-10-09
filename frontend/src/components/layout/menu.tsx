@@ -1,22 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import IconSetting from '@renderer/assets/setting.svg'
 import { Link, useLocation } from 'react-router'
 import IconQuestion from '@renderer/assets/question-circle-fill.svg'
 import IconGithub from '@renderer/assets/github.svg'
 import IconThemeDefault from '@renderer/assets/theme-default.svg'
 import IconThemeDark from '@renderer/assets/theme-dark.svg'
-import { darkThemeName, EventSystemTheme, lightThemeName } from '../../types/type'
+import { darkThemeName, EventNativeTheme, EventSystemTheme, lightThemeName } from '../../types/type'
 import * as runtime from '@wailsio/runtime'
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
 import { getTextHead } from '../../services/utils'
 import { WailsEvent } from '@wailsio/runtime/types/events'
+import Toast, { ToastRefType } from '../message/toast'
+import { getSettingAfterPendingSaves, saveSystemPatch } from '../../services/setting'
 
 export default function Menu() {
   const location = useLocation();
-  const [theme, setTheme] = useState("light")
+  const [theme, setTheme] = useState<string | null>(null)
   const [app, setApp] = useState<App[]>()
+  const toastRef = useRef<ToastRefType>(null)
 
   useEffect(() => {
+    let active = true
     // setApp([
     //   {
     //     "Name": "dpanel",
@@ -70,22 +74,27 @@ export default function Menu() {
     //   }
     // ])
 
-    SettingService.GetAll().then(res => {
-      if (res.Apps) {
-        setApp(res.Apps)
-        setTheme(res.System.Theme)
+    getSettingAfterPendingSaves().then(res => {
+      if (active) {
+        setApp(res.Apps ?? undefined)
+        setTheme(res.System?.Theme || lightThemeName)
       }
     })
 
-    runtime.Events.Off(EventSystemTheme)
-    runtime.Events.On(EventSystemTheme, (res: WailsEvent) => {
+    const cancelThemeEvent = runtime.Events.On(EventSystemTheme, (res: WailsEvent) => {
       setTheme(res.data)
     })
 
+    return () => {
+      active = false
+      cancelThemeEvent()
+    }
   }, [])
 
   useEffect(() => {
+    if (!theme) return
     document.querySelector('html')?.setAttribute('data-theme', theme)
+    void runtime.Events.Emit(EventNativeTheme, theme)
   }, [theme])
 
   function isActive(pathname: string) {
@@ -93,6 +102,7 @@ export default function Menu() {
   }
 
   return <div className='h-full bg-base-300 overflow-hidden' style={{ flex: '0 0 auto' }}>
+    <Toast ref={toastRef} />
     <ul className="menu p-1 mr-0.5">
       {app?.map(item => {
         return <li className='items-center' key={item.Name}>
@@ -109,10 +119,21 @@ export default function Menu() {
       </li>
       <li className='items-center mt-3 '>
         <label className="swap swap-rotate p-4  fill-base-content">
-          <input type="checkbox" className="theme-controller" onClick={() => {
-            setTheme((prev) => {
-              return prev == lightThemeName ? darkThemeName : lightThemeName
-            })
+          <input type="checkbox" className="theme-controller" checked={theme === darkThemeName} disabled={!theme} onChange={async () => {
+            const nextTheme = theme === darkThemeName ? lightThemeName : darkThemeName
+            setTheme(nextTheme)
+            void runtime.Events.Emit(EventSystemTheme, nextTheme)
+            try {
+              await saveSystemPatch({ Theme: nextTheme })
+            } catch (error) {
+              toastRef.current?.error(`保存皮肤失败：${String(error)}`)
+              try {
+                const current = await getSettingAfterPendingSaves()
+                void runtime.Events.Emit(EventSystemTheme, current.System.Theme || lightThemeName)
+              } catch {
+                // The save error has already been reported.
+              }
+            }
           }} />
 
           <IconThemeDark className="swap-on" />

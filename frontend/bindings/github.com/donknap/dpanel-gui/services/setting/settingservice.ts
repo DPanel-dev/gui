@@ -21,10 +21,6 @@ export function GetApp(name: string): $CancellablePromise<$models.App | null> {
     return $Call.ByID(3956420844, name);
 }
 
-export function GetAutoLaunchStatus(): $CancellablePromise<function$0.Response | null> {
-    return $Call.ByID(1374284227);
-}
-
 export function OpenFolder(path: string): $CancellablePromise<void> {
     return $Call.ByID(4230578371, path);
 }
@@ -39,10 +35,6 @@ export function OpenWorkDir(): $CancellablePromise<boolean> {
 
 export function SaveAppEnvironment(env: $models.FormAppEnvironment): $CancellablePromise<function$0.Response | null> {
     return $Call.ByID(835905426, env);
-}
-
-export function SaveAutoLaunchStatus(status: boolean): $CancellablePromise<function$0.Response | null> {
-    return $Call.ByID(426509468, status);
 }
 
 export function SaveSystem(value: $models.System): $CancellablePromise<function$0.Response | null> {

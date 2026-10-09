@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
 
       - name: Get current date for Wails cache
@@ -35,11 +35,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\go\bin\wails3.exe
-          key: ${{ runner.os }}-wails3-${{ steps.date.outputs.date }}
+          key: ${{ runner.os }}-wails3-beta28-${{ steps.date.outputs.date }}
 
       - name: Install wails3
         if: steps.cache-wails.outputs.cache-hit != 'true'
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
 
       - name: Add Go bin to PATH
         run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
@@ -82,7 +82,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
 
       - name: Get current date for Wails cache
@@ -94,11 +94,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\go\bin\wails3.exe
-          key: ${{ runner.os }}-wails3-${{ steps.date.outputs.date }}
+          key: ${{ runner.os }}-wails3-beta28-${{ steps.date.outputs.date }}
 
       - name: Install wails3
         if: steps.cache-wails.outputs.cache-hit != 'true'
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
 
       - name: Add Go bin to PATH
         run: echo "$HOME\go\bin" >> $env:GITHUB_PATH
@@ -232,10 +232,82 @@ jobs:
           gh release upload ${{ github.ref_name }} bin/dpanel-desktop-${{ matrix.edition }}-amd64-portable.zip --repo donknap/dpanel --clobber
 
   # ==============================
-  # Job 4: 上传全部产物到 COS（Ubuntu）
+  # Job 4: macOS CE/PE bundles
+  # ==============================
+  package-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [ce, pe]
+        arch: [amd64, arm64]
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Download DPanel binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p bin
+          for attempt in {1..12}; do
+            if gh release download "${{ github.ref_name }}" \
+              --repo donknap/dpanel \
+              --pattern "dpanel-${{ matrix.edition }}-darwin-${{ matrix.arch }}" \
+              --dir bin; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "DPanel macOS release binary is unavailable" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          test -s "bin/dpanel-${{ matrix.edition }}-darwin-${{ matrix.arch }}"
+          expected_arch="${{ matrix.arch }}"
+          if [ "$expected_arch" = amd64 ]; then expected_arch=x86_64; fi
+          test "$(lipo -archs "bin/dpanel-${{ matrix.edition }}-darwin-${{ matrix.arch }}")" = "$expected_arch"
+
+      - name: Build macOS app
+        run: |
+          wails3 task darwin:package ARCH=${{ matrix.arch }} \
+            DPANEL_BINARY="bin/dpanel-${{ matrix.edition }}-darwin-${{ matrix.arch }}"
+          codesign --verify --deep --strict "bin/dpanel-desktop.app"
+          ditto -c -k --sequesterRsrc --keepParent "bin/dpanel-desktop.app" \
+            "bin/dpanel-desktop-${{ matrix.edition }}-darwin-${{ matrix.arch }}.app.zip"
+
+      - name: Upload macOS package
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: bin/dpanel-desktop-${{ matrix.edition }}-darwin-${{ matrix.arch }}.app.zip
+
+      - name: Upload to donknap/dpanel Release
+        env:
+          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "bin/dpanel-desktop-${{ matrix.edition }}-darwin-${{ matrix.arch }}.app.zip" \
+            --repo donknap/dpanel --clobber
+
+  # ==============================
+  # Job 5: 上传全部产物到 COS（Ubuntu）
   # ==============================
   upload-cos:
-    needs: [package-installer, package-portable]
+    needs: [package-installer, package-portable, package-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Download All Release Assets

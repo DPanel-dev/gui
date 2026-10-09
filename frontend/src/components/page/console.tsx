@@ -12,7 +12,6 @@ import { systemError } from '../../services/notice'
 import { useParams } from 'react-router'
 import { ProcessEventMessage, ProcessService, RunOption } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
-import { LogService } from '../../../bindings/github.com/wailsapp/wails/v3/pkg/services/log'
 
 const TtyDefaultOption: ITerminalOptions & ITerminalInitOnlyOptions = {
   convertEol: true,
@@ -34,7 +33,6 @@ const TtyDefaultOption: ITerminalOptions & ITerminalInitOnlyOptions = {
 export default function ConsolePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
-  const fitAddonRef = useRef<FitAddon | null>(null)
   const [status, setStatus] = useState<string>()
   const { id } = useParams();
   const [appConfig, setAppConfig] = useState<App>()
@@ -42,18 +40,11 @@ export default function ConsolePage() {
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    if (!container || !id) return
 
-    console.log(id);
-    if (!id) {
-      return
-    }
-
-    if (terminalRef.current) {
-      terminalRef.current.dispose()
-      window.removeEventListener("resize", resize)
-    }
-    window.addEventListener('resize', resize);
+    let active = true
+    setStatus(undefined)
+    setAppConfig(undefined)
 
     const fitAddon = new FitAddon()
     const terminal = new Terminal(TtyDefaultOption)
@@ -73,64 +64,47 @@ export default function ConsolePage() {
       return true;
     })
 
-    terminal.onRender(() => {
-      fitAddon.fit()
+    terminalRef.current = terminal
+    const resize = () => fitAddon.fit()
+    window.addEventListener('resize', resize)
+    const fitTimer = window.setTimeout(resize, 0)
+    const cancelEvent = runtime.Events.On(eventName, (event) => {
+      if (!active) return
+      const message = event.data as ProcessEventMessage
+      if (message?.Status) setStatus(message.Status.trim())
+      if (message?.Log) terminal.write(message.Log)
     })
 
-    terminalRef.current = terminal
-    fitAddonRef.current = fitAddon
-
-    setTimeout(() => {
-      SettingService.GetApp(id).then(res => {
-        if (res?.RunOption.AutoLaunch) {
-          runProcess(res.Name, res.RunOption)
-        }
-        LogService.Info("js get config", "config", res)
-        if (!res) {
-          systemError("未找到当前应用的配置，请完善 setting.json 后重新运行")
-          return
-        }
-        runtime.Events.Off(eventName)
-        runtime.Events.On(eventName, (e) => {
-          const message = e.data
-          if (message && message.Status) {
-            setStatus(String(message.Status.trim()))
-          }
-          if (message && message.Log) {
-            terminal.write(message.Log)
-          }
-        })
-
-        ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-          console.log("get process status", message);
-
-          if (message && message.Status) {
-            setStatus(String(message.Status.trim()))
-          }
-          if (message && message.Log) {
-            terminal.write(message.Log)
-          }
-        })
-
-        setAppConfig(res)
+    SettingService.GetApp(id).then(res => {
+      if (!active) return
+      if (!res) {
+        systemError("未找到当前应用的配置，请完善 setting.json 后重新运行")
+        return
+      }
+      setAppConfig(res)
+      return ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+        if (!active) return
+        if (message?.Status) setStatus(message.Status.trim())
+        if (message?.Log) terminal.write(message.Log)
       })
-    }, 500)
+    }).catch(error => {
+      if (active) systemError(String(error))
+    })
 
     return () => {
-      console.log("events off all");
-      runtime.Events.Off(eventName)
+      active = false
+      window.clearTimeout(fitTimer)
+      window.removeEventListener('resize', resize)
+      cancelEvent()
+      terminal.dispose()
+      terminalRef.current = null
     }
   }, [id])
-
-  function resize() {
-    if (fitAddonRef.current) {
-      fitAddonRef.current.fit()
-    }
-  }
 
   async function runProcess(name: string, runOption: RunOption) {
     if (!name || !runOption) {
       systemError("启动参数错误，请完善 setting.json 配置文件")
+      return
     }
     terminalRef.current?.clear()
     const status = await runCommand(name, runOption)

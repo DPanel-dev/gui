@@ -25,11 +25,10 @@ export interface EnvironmentItem {
 export type FormAppEnvironment = {"name": string, "environment": string[] | null}[] | null;
 
 export interface Setting {
-    "Environment": { [_: string]: EnvironmentItem } | null;
+    "Environment": { [_ in string]?: EnvironmentItem } | null;
 }
 
 export interface System {
-    "AutoLaunch": boolean;
     "CloseWindowHide": boolean;
     "Theme": string;
 }

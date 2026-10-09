@@ -21,8 +21,6 @@ let messageId = 0 // 全局自增 ID
 
 const Toast = forwardRef<ToastRefType, {}>((_, ref) => {
   const [messages, setMessages] = useState<ToastMessage[]>([])
-  const duration = 5000 // 每条消息显示 5 秒
-
   const show = (msg: string, msgType: MessageType = 'success') => {
     const id = ++messageId
 
@@ -43,7 +41,7 @@ const Toast = forwardRef<ToastRefType, {}>((_, ref) => {
     // 设置定时器自动移除
     setTimeout(() => {
       setMessages((prev) => prev.filter((m) => m.id !== id))
-    }, duration)
+    }, msgType === 'success' ? 2000 : 5000)
   }
 
   // 暴露方法给 ref

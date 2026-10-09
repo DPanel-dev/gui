@@ -1,6 +1,5 @@
 {
-  "Setting": {
-    "Apps": [
+  "Apps": [
       {
         "HomeUrl": "${HOME_URL}:${APP_SERVER_PORT}",
         "Name": "dpanel",
@@ -61,9 +60,7 @@
       }
     ],
     "System": {
-      "AutoLaunch": false,
       "CloseWindowHide": true,
       "Theme": "light"
     }
-  }
 }

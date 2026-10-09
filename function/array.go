@@ -1,6 +1,9 @@
 package function
 
-import "strings"
+import (
+	"fmt"
+	"unicode"
+)
 
 func PluckArrayWalk[T interface{}, R interface{}](v []T, walk func(i T) (R, bool)) []R {
 	result := make([]R, 0)
@@ -23,27 +26,49 @@ func PluckArrayItemWalk[T interface{}](v []T, walk func(item T) bool) (T, bool) 
 	return result, false
 }
 
-func SplitCommandArray(cmd string) (string, []string) {
-	result := make([]string, 0)
-	field := ""
-	ignoreSpace := false
-	for _, s := range strings.Split(cmd, "") {
-		if s == " " && !ignoreSpace {
-			result = append(result, field)
-			field = ""
+func SplitCommandArray(command string) (string, []string, error) {
+	var args []string
+	var field []rune
+	var quote rune
+	started := false
+	runes := []rune(command)
+	for i := 0; i < len(runes); i++ {
+		char := runes[i]
+		if quote != 0 {
+			if char == quote {
+				if i+1 < len(runes) && runes[i+1] == quote {
+					field = append(field, char)
+					i++
+				} else {
+					quote = 0
+				}
+			} else {
+				field = append(field, char)
+			}
 			continue
 		}
-		if s == "\"" || s == "'" {
-			ignoreSpace = !ignoreSpace
-			continue
+		if char == '\'' || char == '"' {
+			quote = char
+			started = true
+		} else if unicode.IsSpace(char) {
+			if started {
+				args = append(args, string(field))
+				field = nil
+				started = false
+			}
+		} else {
+			field = append(field, char)
+			started = true
 		}
-		field += s
 	}
-	if field != "" {
-		result = append(result, field)
+	if quote != 0 {
+		return "", nil, fmt.Errorf("unclosed quote in command")
 	}
-	if len(result) == 1 {
-		return result[0], make([]string, 0)
+	if started {
+		args = append(args, string(field))
 	}
-	return result[0], result[1:]
+	if len(args) == 0 || args[0] == "" {
+		return "", nil, fmt.Errorf("empty command")
+	}
+	return args[0], args[1:], nil
 }

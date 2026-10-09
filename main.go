@@ -107,8 +107,7 @@ func main() {
 			if v := settingService.GetAll(); v.Apps != nil {
 				for _, item := range v.Apps {
 					if item.RunOption.AutoLaunch {
-						// 这里启动程序如果有错误可能会影响整个程序的启动
-						//go self.Run(item.Name, item.RunOption)
+						go self.Run(item.Name, item.RunOption)
 					}
 				}
 			}
@@ -119,6 +118,13 @@ func main() {
 	if runtime.GOOS == "windows" {
 		notificationService := notifications.New()
 		app.RegisterService(application.NewService(notificationService))
+	}
+
+	macAppearance := application.NSAppearanceNameAqua
+	windowsTheme := application.Light
+	if settingService.GetAll().System.Theme == "black" {
+		macAppearance = application.NSAppearanceNameDarkAqua
+		windowsTheme = application.Dark
 	}
 
 	// Create a new window with the necessary options.
@@ -133,16 +139,21 @@ func main() {
 		Height:    800,
 		MinWidth:  1024,
 		MinHeight: 768,
-		Windows:   application.WindowsWindow{},
+		Windows:   application.WindowsWindow{Theme: windowsTheme},
 		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropLiquidGlass,
-			TitleBar:                application.MacTitleBarDefault,
+			Backdrop:   application.MacBackdropNormal,
+			TitleBar:   application.MacTitleBarDefault,
+			Appearance: macAppearance,
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
 		//X:                2000,
 		//Y:                10,
+	})
+	app.Event.On("dp-native-theme", func(event *application.CustomEvent) {
+		if theme, ok := event.Data.(string); ok && (theme == "light" || theme == "black") {
+			function.SetNativeTheme(mainWindow, theme)
+		}
 	})
 
 	// Create a goroutine that emits an event containing the current time every second.

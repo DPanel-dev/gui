@@ -2,15 +2,12 @@ package setting
 
 import "github.com/donknap/dpanel-gui/services/process"
 
-const AutoLaunchKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-
 type Config struct {
 	Path           string
 	DefaultSetting AllSetting
 }
 
 type System struct {
-	AutoLaunch      bool
 	CloseWindowHide bool
 	Theme           string
 }

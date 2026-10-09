@@ -32,16 +32,17 @@ tasks:
 
   build:universal:
     summary: Builds darwin universal binary (arm64 + amd64)
-    deps:
+    cmds:
       - task: build
         vars:
           ARCH: amd64
           OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-amd64"
+          PRODUCTION: '{{.PRODUCTION | default "false"}}'
       - task: build
         vars:
           ARCH: arm64
           OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
-    cmds:
+          PRODUCTION: '{{.PRODUCTION | default "false"}}'
       - lipo -create -output "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
       - rm "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
 
@@ -58,27 +59,44 @@ tasks:
     summary: Packages darwin universal binary (arm64 + amd64)
     deps:
       - task: build:universal
+        vars:
+          PRODUCTION: "true"
     cmds:
+      - lipo -create -output "{{.BIN_DIR}}/dpanel-universal" "{{.DPANEL_BINARY_AMD64}}" "{{.DPANEL_BINARY_ARM64}}"
       - task: create:app:bundle
+        vars:
+          DPANEL_BINARY: "{{.BIN_DIR}}/dpanel-universal"
+    preconditions:
+      - sh: test -f "{{.DPANEL_BINARY_AMD64}}" && test -f "{{.DPANEL_BINARY_ARM64}}"
+        msg: "Pass DPANEL_BINARY_AMD64 and DPANEL_BINARY_ARM64 for a universal package"
 
 
   create:app:bundle:
     summary: Creates an `.app` bundle
+    preconditions:
+      - sh: test -f "{{.DPANEL_BINARY}}"
+        msg: "Pass DPANEL_BINARY with a DPanel executable matching the GUI architecture"
     cmds:
-      - mkdir -p {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/{MacOS,Resources}
-      - cp build/darwin/icons.icns {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources
-      - cp {{.BIN_DIR}}/{{.APP_NAME}} {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS
-      - cp build/darwin/Info.plist {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents
-      - codesign --force --deep --sign - {{.BIN_DIR}}/{{.APP_NAME}}.app
-      - cp /Users/renchao/Workspace/go/dpanel/bin/dpanel {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/dpanel
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS/apps/dpanel" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      - cp "build/darwin/icons.icns" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
+      - cp "{{.DPANEL_BINARY}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS/apps/dpanel/dpanel"
+      - cp "build/darwin/Info.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents"
+      - chmod +x "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS/apps/dpanel/dpanel"
+      - codesign --force --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS/apps/dpanel/dpanel"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
 
   run:
+    preconditions:
+      - sh: test -f "{{.DPANEL_DEV_BINARY | default "../dpanel/runtime/DPanel"}}"
+        msg: "Build ../dpanel/runtime/DPanel before running the GUI"
     cmds:
-      - mkdir -p {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/{MacOS,Resources}
-      - cp build/darwin/icons.icns {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources
-      - cp {{.BIN_DIR}}/{{.APP_NAME}} {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS
-      - cp build/darwin/Info.dev.plist {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist
-      - codesign --force --deep --sign - {{.BIN_DIR}}/{{.APP_NAME}}.dev.app
-      - mkdir -p {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel
-      - cp /Users/renchao/Workspace/go/dpanel/bin/dpanel {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel
-      - '{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}'
+      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - cp "build/darwin/icons.icns" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
+      - cp "{{.DPANEL_DEV_BINARY | default "../dpanel/runtime/DPanel"}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel/dpanel"
+      - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      - chmod +x "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel/dpanel"
+      - codesign --force --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/apps/dpanel/dpanel"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
+      - '"{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}"'
