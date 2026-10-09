@@ -304,45 +304,10 @@ jobs:
             --repo donknap/dpanel --clobber
 
   # ==============================
-  # Job 5: 上传全部产物到 COS（Ubuntu）
+  # Job 5: 更新 Homebrew casks（Ubuntu）
   # ==============================
-  upload-cos:
-    needs: [package-installer, package-portable, package-macos]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download All Release Assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p bin
-          gh release download ${{ github.ref_name }} -D bin --repo ${{ github.repository }}
-          rm -f bin/dpanel-desktop.exe
-
-      - name: Install coscli
-        run: |
-          wget -q https://cosbrowser.cloud.tencent.com/software/coscli/coscli-linux-amd64 -O coscli
-          chmod +x coscli
-
-      - name: Configure coscli
-        env:
-          COS_SECRET_ID: ${{ secrets.CDN_QCLOUD_COSV5_SECRET_ID }}
-          COS_SECRET_KEY: ${{ secrets.CDN_QCLOUD_COSV5_SECRET_KEY }}
-        run: |
-          cat > ~/.cos.yaml <<EOF
-          cos:
-            base:
-              secretid: ${COS_SECRET_ID}
-              secretkey: ${COS_SECRET_KEY}
-          EOF
-
-      - name: Upload to COS
-        run: |
-          ls -lh bin
-          ./coscli cp -e cos.ap-shanghai.myqcloud.com bin/ cos://we7cloud-10016060/dpanel/release/ -r --part-size 10 --routines 20
-          echo "All files uploaded to COS"
-
   update-homebrew-casks:
-    needs: upload-cos
+    needs: [package-installer, package-portable, package-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Check out DPanel Homebrew repository
@@ -415,3 +380,41 @@ jobs:
           git add -- Casks
           git commit -m "Update DPanel casks to ${VERSION}"
           git push origin "HEAD:refs/heads/$(git branch --show-current)"
+
+  # ==============================
+  # Job 6: 上传全部产物到 COS（Ubuntu）
+  # ==============================
+  upload-cos:
+    needs: [package-installer, package-portable, package-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Release Assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p bin
+          gh release download ${{ github.ref_name }} -D bin --repo ${{ github.repository }}
+          rm -f bin/dpanel-desktop.exe
+
+      - name: Install coscli
+        run: |
+          wget -q https://cosbrowser.cloud.tencent.com/software/coscli/coscli-linux-amd64 -O coscli
+          chmod +x coscli
+
+      - name: Configure coscli
+        env:
+          COS_SECRET_ID: ${{ secrets.CDN_QCLOUD_COSV5_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.CDN_QCLOUD_COSV5_SECRET_KEY }}
+        run: |
+          cat > ~/.cos.yaml <<EOF
+          cos:
+            base:
+              secretid: ${COS_SECRET_ID}
+              secretkey: ${COS_SECRET_KEY}
+          EOF
+
+      - name: Upload to COS
+        run: |
+          ls -lh bin
+          ./coscli cp -e cos.ap-shanghai.myqcloud.com bin/ cos://we7cloud-10016060/dpanel/release/ -r --part-size 10 --routines 20
+          echo "All files uploaded to COS"
