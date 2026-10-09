@@ -340,3 +340,117 @@ jobs:
           ls -lh bin
           ./coscli cp -e cos.ap-shanghai.myqcloud.com bin/ cos://we7cloud-10016060/dpanel/release/ -r --part-size 10 --routines 20
           echo "All files uploaded to COS"
+
+  update-homebrew-casks:
+    needs: upload-cos
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cask: dpanel
+            edition: ce
+            branch: ce
+          - cask: dpanel-pe
+            edition: pe
+            branch: pe
+    steps:
+      - name: Check out DPanel Homebrew branch
+        uses: actions/checkout@v4
+        with:
+          repository: DPanel-dev/homebrew-cask
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
+
+      - name: Update cask version and checksums
+        id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          CASK: ${{ matrix.cask }}
+          EDITION: ${{ matrix.edition }}
+        run: |
+          set -euo pipefail
+          cask_file="Casks/d/${CASK}.rb"
+          if [[ ! -f "$cask_file" ]]; then
+            echo "${CASK} is not in Homebrew yet; waiting for its first PR to merge."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          release="$(gh api "repos/donknap/dpanel/releases/tags/${RELEASE_TAG}")"
+          if [[ "$(jq -r '.prerelease' <<< "$release")" != false ]]; then
+            echo "Skipping prerelease $RELEASE_TAG"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for arch in arm64 amd64; do
+            asset="dpanel-desktop-${EDITION}-darwin-${arch}.app.zip"
+            gh release download "$RELEASE_TAG" \
+              --repo donknap/dpanel --pattern "$asset" --dir "$RUNNER_TEMP"
+          done
+          arm_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-arm64.app.zip" | cut -d ' ' -f 1)"
+          intel_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-amd64.app.zip" | cut -d ' ' -f 1)"
+          export CASK_FILE="$cask_file" VERSION="${RELEASE_TAG#v}" ARM_SHA="$arm_sha" INTEL_SHA="$intel_sha"
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path(os.environ["CASK_FILE"])
+          content = path.read_text()
+          content, versions = re.subn(
+              r'^  version "[^"]+"$',
+              f'  version "{os.environ["VERSION"]}"',
+              content,
+              flags=re.MULTILINE,
+          )
+          content, checksums = re.subn(
+              r'^  sha256 arm:   "[0-9a-f]{64}",\n         intel: "[0-9a-f]{64}"$',
+              f'  sha256 arm:   "{os.environ["ARM_SHA"]}",\n'
+              f'         intel: "{os.environ["INTEL_SHA"]}"',
+              content,
+              flags=re.MULTILINE,
+          )
+          if versions != 1 or checksums != 1:
+              raise SystemExit(f"Unexpected version or sha256 stanza in {path}")
+          path.write_text(content)
+          PY
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- "$cask_file"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push branch and open Homebrew PR
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+          CASK: ${{ matrix.cask }}
+          BRANCH: ${{ matrix.branch }}
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          set -euo pipefail
+          : "${GH_TOKEN:?MY_GITHUB_TOKEN is required to push branches and open Homebrew PRs}"
+          git config user.name "DPanel automation"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "Casks/d/${CASK}.rb"
+          git commit -m "${CASK} ${VERSION}"
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$BRANCH"
+
+          existing="$(gh pr list --repo Homebrew/homebrew-cask --head "DPanel-dev:$BRANCH" --state open --json number --jq '.[0].number')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo Homebrew/homebrew-cask \
+              --base main \
+              --head "DPanel-dev:$BRANCH" \
+              --title "${CASK} ${VERSION}" \
+              --body-file .github/PULL_REQUEST_TEMPLATE.md
+          fi
