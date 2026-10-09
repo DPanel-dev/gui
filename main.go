@@ -205,7 +205,7 @@ func main() {
 	trayMenu.AddRole(application.Quit)
 
 	systray := app.SystemTray.New()
-	systray.SetTemplateIcon(icon)
+	systray.SetIcon(icon)
 	systray.SetMenu(trayMenu)
 	systray.OnDoubleClick(showMainWindow)
 
