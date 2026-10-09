@@ -334,7 +334,7 @@ jobs:
             exit 0
           fi
 
-          version="${RELEASE_TAG#v}"
+          current_version=""
           for edition in ce pe; do
             cask=dpanel
             if [[ "$edition" == pe ]]; then cask=dpanel-pe; fi
@@ -344,6 +344,29 @@ jobs:
               exit 1
             fi
             cask_file="${matches[0]}"
+            cask_version="$(sed -nE 's/^  version "([^"]+)"$/\1/p' "$cask_file")"
+            if [[ ! "$cask_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+),([0-9]+)$ ]]; then
+              echo "Unexpected version in $cask_file: $cask_version" >&2
+              exit 1
+            fi
+            cask_server_version="${BASH_REMATCH[1]}"
+            cask_revision="${BASH_REMATCH[2]}"
+            if [[ -z "$current_version" ]]; then
+              current_version="$cask_version"
+              if [[ "$RELEASE_TAG" != "v$cask_server_version" ]]; then
+                echo "Release tag $RELEASE_TAG does not match the cask server version $cask_server_version" >&2
+                exit 1
+              fi
+              revision="$(date -u +%s)"
+              current_revision_number=$((10#$cask_revision))
+              if (( revision <= current_revision_number )); then
+                revision="$((current_revision_number + 1))"
+              fi
+              version="$cask_server_version,$revision"
+            elif [[ "$cask_version" != "$current_version" ]]; then
+              echo "CE and PE cask versions differ: $current_version and $cask_version" >&2
+              exit 1
+            fi
 
             for arch in arm64 amd64; do
               asset="dpanel-desktop-${edition}-darwin-${arch}.app.zip"
