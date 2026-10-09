@@ -344,37 +344,20 @@ jobs:
   update-homebrew-casks:
     needs: upload-cos
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - cask: dpanel
-            edition: ce
-          - cask: dpanel-pe
-            edition: pe
     steps:
-      - name: Check out DPanel Homebrew branch
+      - name: Check out DPanel Homebrew repository
         uses: actions/checkout@v4
         with:
-          repository: DPanel-dev/homebrew-cask
-          ref: ${{ matrix.edition }}
-          persist-credentials: false
+          repository: DPanel-dev/homebrew
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
 
       - name: Update cask version and checksums
         id: update
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-          CASK: ${{ matrix.cask }}
-          EDITION: ${{ matrix.edition }}
         run: |
           set -euo pipefail
-          cask_file="Casks/d/${CASK}.rb"
-          if [[ ! -f "$cask_file" ]]; then
-            echo "${CASK} is not in Homebrew yet; waiting for its first PR to merge."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Unexpected release tag: $RELEASE_TAG" >&2
             exit 1
@@ -386,53 +369,49 @@ jobs:
             exit 0
           fi
 
-          for arch in arm64 amd64; do
-            asset="dpanel-desktop-${EDITION}-darwin-${arch}.app.zip"
-            gh release download "$RELEASE_TAG" \
-              --repo donknap/dpanel --pattern "$asset" --dir "$RUNNER_TEMP"
-          done
-          arm_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-arm64.app.zip" | cut -d ' ' -f 1)"
-          intel_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-amd64.app.zip" | cut -d ' ' -f 1)"
           version="${RELEASE_TAG#v}"
-          sed -i -E \
-            -e "s/^  version \"[^\"]+\"$/  version \"$version\"/" \
-            -e "s/^  sha256 arm:   \"[0-9a-f]{64}\",$/  sha256 arm:   \"$arm_sha\",/" \
-            -e "s/^         intel: \"[0-9a-f]{64}\"$/         intel: \"$intel_sha\"/" \
-            "$cask_file"
-          grep -Fqx "  version \"$version\"" "$cask_file"
-          grep -Fqx "  sha256 arm:   \"$arm_sha\"," "$cask_file"
-          grep -Fqx "         intel: \"$intel_sha\"" "$cask_file"
+          for edition in ce pe; do
+            cask=dpanel
+            if [[ "$edition" == pe ]]; then cask=dpanel-pe; fi
+            mapfile -t matches < <(find Casks -type f -name "${cask}.rb")
+            if [[ "${#matches[@]}" -ne 1 ]]; then
+              echo "Expected one ${cask}.rb in the Homebrew repository, found ${#matches[@]}" >&2
+              exit 1
+            fi
+            cask_file="${matches[0]}"
+
+            for arch in arm64 amd64; do
+              asset="dpanel-desktop-${edition}-darwin-${arch}.app.zip"
+              gh release download "$RELEASE_TAG" \
+                --repo donknap/dpanel --pattern "$asset" --dir "$RUNNER_TEMP"
+            done
+            arm_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${edition}-darwin-arm64.app.zip" | cut -d ' ' -f 1)"
+            intel_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${edition}-darwin-amd64.app.zip" | cut -d ' ' -f 1)"
+            sed -i -E \
+              -e "s/^  version \"[^\"]+\"$/  version \"$version\"/" \
+              -e "s/^  sha256 arm:   \"[0-9a-f]{64}\",$/  sha256 arm:   \"$arm_sha\",/" \
+              -e "s/^         intel: \"[0-9a-f]{64}\"$/         intel: \"$intel_sha\"/" \
+              "$cask_file"
+            grep -Fqx "  version \"$version\"" "$cask_file"
+            grep -Fqx "  sha256 arm:   \"$arm_sha\"," "$cask_file"
+            grep -Fqx "         intel: \"$intel_sha\"" "$cask_file"
+          done
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if git diff --quiet -- "$cask_file"; then
+          if git diff --quiet -- Casks; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Push branch and open Homebrew PR
+      - name: Push Homebrew cask updates
         if: steps.update.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
-          CASK: ${{ matrix.cask }}
-          BRANCH: ${{ matrix.edition }}
           VERSION: ${{ steps.update.outputs.version }}
         run: |
           set -euo pipefail
-          : "${GH_TOKEN:?MY_GITHUB_TOKEN is required to push branches and open Homebrew PRs}"
           git config user.name "DPanel-Dev"
           git config user.email "donknap@gmail.com"
-          git add "Casks/d/${CASK}.rb"
-          git commit -m "${CASK} ${VERSION}"
-          gh auth setup-git
-          git push origin "HEAD:refs/heads/$BRANCH"
-
-          existing="$(gh pr list --repo Homebrew/homebrew-cask --head "DPanel-dev:$BRANCH" --state open --json number --jq '.[0].number')"
-          if [[ -z "$existing" ]]; then
-            gh pr create \
-              --repo Homebrew/homebrew-cask \
-              --base main \
-              --head "DPanel-dev:$BRANCH" \
-              --title "${CASK} ${VERSION}" \
-              --body-file .github/PULL_REQUEST_TEMPLATE.md
-          fi
+          git add -- Casks
+          git commit -m "Update DPanel casks to ${VERSION}"
+          git push origin "HEAD:refs/heads/$(git branch --show-current)"
