@@ -307,7 +307,7 @@ jobs:
   # Job 5: 更新 Homebrew casks（Ubuntu）
   # ==============================
   update-homebrew-casks:
-    needs: [package-installer, package-portable, package-macos]
+    needs: package-macos
     runs-on: ubuntu-latest
     steps:
       - name: Check out DPanel Homebrew repository
