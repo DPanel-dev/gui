@@ -393,33 +393,17 @@ jobs:
           done
           arm_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-arm64.app.zip" | cut -d ' ' -f 1)"
           intel_sha="$(sha256sum "${RUNNER_TEMP}/dpanel-desktop-${EDITION}-darwin-amd64.app.zip" | cut -d ' ' -f 1)"
-          export CASK_FILE="$cask_file" VERSION="${RELEASE_TAG#v}" ARM_SHA="$arm_sha" INTEL_SHA="$intel_sha"
-          python3 - <<'PY'
-          import os
-          import re
-          from pathlib import Path
+          version="${RELEASE_TAG#v}"
+          sed -i -E \
+            -e "s/^  version \"[^\"]+\"$/  version \"$version\"/" \
+            -e "s/^  sha256 arm:   \"[0-9a-f]{64}\",$/  sha256 arm:   \"$arm_sha\",/" \
+            -e "s/^         intel: \"[0-9a-f]{64}\"$/         intel: \"$intel_sha\"/" \
+            "$cask_file"
+          grep -Fqx "  version \"$version\"" "$cask_file"
+          grep -Fqx "  sha256 arm:   \"$arm_sha\"," "$cask_file"
+          grep -Fqx "         intel: \"$intel_sha\"" "$cask_file"
 
-          path = Path(os.environ["CASK_FILE"])
-          content = path.read_text()
-          content, versions = re.subn(
-              r'^  version "[^"]+"$',
-              f'  version "{os.environ["VERSION"]}"',
-              content,
-              flags=re.MULTILINE,
-          )
-          content, checksums = re.subn(
-              r'^  sha256 arm:   "[0-9a-f]{64}",\n         intel: "[0-9a-f]{64}"$',
-              f'  sha256 arm:   "{os.environ["ARM_SHA"]}",\n'
-              f'         intel: "{os.environ["INTEL_SHA"]}"',
-              content,
-              flags=re.MULTILINE,
-          )
-          if versions != 1 or checksums != 1:
-              raise SystemExit(f"Unexpected version or sha256 stanza in {path}")
-          path.write_text(content)
-          PY
-
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           if git diff --quiet -- "$cask_file"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
