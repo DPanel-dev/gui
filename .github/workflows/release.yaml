@@ -350,16 +350,14 @@ jobs:
         include:
           - cask: dpanel
             edition: ce
-            branch: ce
           - cask: dpanel-pe
             edition: pe
-            branch: pe
     steps:
       - name: Check out DPanel Homebrew branch
         uses: actions/checkout@v4
         with:
           repository: DPanel-dev/homebrew-cask
-          ref: ${{ matrix.branch }}
+          ref: ${{ matrix.edition }}
           persist-credentials: false
 
       - name: Update cask version and checksums
@@ -433,7 +431,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
           CASK: ${{ matrix.cask }}
-          BRANCH: ${{ matrix.branch }}
+          BRANCH: ${{ matrix.edition }}
           VERSION: ${{ steps.update.outputs.version }}
         run: |
           set -euo pipefail
