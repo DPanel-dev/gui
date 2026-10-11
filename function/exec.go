@@ -21,8 +21,12 @@ func BuildRunEnv(workDir string, overrides []string) ([]string, error) {
 		}
 	}
 
-	variables := make([]string, 0, len(overrides)+2)
-	variables = append(variables, EnvWorkDir+"="+workDir, EnvHomeDir+"="+os.Getenv(EnvHomeDir))
+	variables := make([]string, 0, len(overrides)+3)
+	variables = append(variables,
+		EnvWorkDir+"="+workDir,
+		EnvHomeDir+"="+os.Getenv(EnvHomeDir),
+		EnvDataDir+"="+os.Getenv(EnvDataDir),
+	)
 	variables = append(variables, overrides...)
 	parsed, err := godotenv.Unmarshal(strings.Join(variables, "\n"))
 	if err != nil {

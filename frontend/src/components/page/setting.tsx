@@ -163,7 +163,10 @@ export default function SettingPage() {
               程序运行目录 <span className="badge badge-xs badge-neutral">DP_WORK_DIR</span>
             </h5>
             <h5 className="text-xs font-semibold">
-              数据存储目录 <span className="badge badge-xs badge-neutral">DP_HOME_DIR</span>
+              桌面配置目录 <span className="badge badge-xs badge-neutral">DP_HOME_DIR</span>
+            </h5>
+            <h5 className="text-xs font-semibold">
+              默认数据目录 <span className="badge badge-xs badge-neutral">DP_DATA_DIR</span>
             </h5>
           </div>
         </fieldset>

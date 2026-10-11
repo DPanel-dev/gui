@@ -24,7 +24,7 @@ export default function Menu() {
     // setApp([
     //   {
     //     "Name": "dpanel",
-    //     "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //     "HomeUrl": "http://${DP_HOME_URL}:${APP_SERVER_PORT}",
     //     "RunOption": {
     //       "AutoLaunch": true,
     //       "WorkDir": "./",
@@ -32,8 +32,8 @@ export default function Menu() {
     //       "StopCommand": "",
     //       "Environment": [
     //         "APP_SERVER_PORT=8086",
-    //         "STORAGE_LOCAL_PATH=${DP_WORK_DIR}/data",
-    //         "HOME_URL=http://127.0.0.1"
+    //         "DP_SYSTEM_STORAGE_LOCAL_PATH=${DP_DATA_DIR}/dpanel",
+    //         "DP_HOME_URL=http://127.0.0.1"
     //       ],
     //       "LogMaxLine": 1000
     //     },
@@ -42,10 +42,10 @@ export default function Menu() {
     //         "APP_SERVER_PORT": {
     //           "Description": "服务运行端口"
     //         },
-    //         "HOME_URL": {
+    //         "DP_HOME_URL": {
     //           "Description": "访问地址"
     //         },
-    //         "STORAGE_LOCAL_PATH": {
+    //         "DP_SYSTEM_STORAGE_LOCAL_PATH": {
     //           "Description": "数据存储目录"
     //         }
     //       }
@@ -53,7 +53,7 @@ export default function Menu() {
     //   },
     //   {
     //     "Name": "nginx",
-    //     "HomeUrl": "http://${HOME_URL}:${APP_SERVER_PORT}",
+    //     "HomeUrl": "http://${DP_HOME_URL}:${APP_SERVER_PORT}",
     //     "RunOption": {
     //       "AutoLaunch": false,
     //       "WorkDir": "./",

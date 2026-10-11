@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,7 +83,7 @@ func TestProcessStartFailure(t *testing.T) {
 	}
 }
 
-func TestProcessEnvironmentOverridesParent(t *testing.T) {
+func TestProcessEnvironmentAppOverridesParent(t *testing.T) {
 	t.Setenv("DPANEL_TEST_HELPER", "1")
 	t.Setenv("DPANEL_TEST_MODE", "environment")
 	t.Setenv("CUSTOM_VALUE", "parent-value")
@@ -113,11 +114,11 @@ func TestProcessEnvironmentOverridesParent(t *testing.T) {
 func TestProcessCommandUsesChildPath(t *testing.T) {
 	t.Setenv("DPANEL_TEST_HELPER", "1")
 	t.Setenv("DPANEL_TEST_MODE", "path")
+	t.Setenv("PATH", filepath.Dir(os.Args[0]))
 	service := testService(t)
 	option := process.RunOption{
 		WorkDir:      t.TempDir(),
 		StartCommand: fmt.Sprintf("%q -test.run=TestProcessHelper$", filepath.Base(os.Args[0])),
-		Environment:  []string{"PATH=" + filepath.Dir(os.Args[0])},
 	}
 	if !service.Run("path-helper", option) {
 		t.Fatal("helper was not found using the child PATH")
@@ -125,6 +126,33 @@ func TestProcessCommandUsesChildPath(t *testing.T) {
 	status := waitForProcessExit(t, service, "path-helper")
 	if status.Status != process.StatusStopped || !strings.Contains(status.Log, "PATH_HELPER_OK") {
 		t.Fatalf("helper status = %q, log = %q", status.Status, status.Log)
+	}
+}
+
+func TestBuildRunEnvStoragePath(t *testing.T) {
+	desktopDir := t.TempDir()
+	homeDir := t.TempDir()
+	dataDir := t.TempDir()
+	t.Setenv(function.EnvWorkDir, desktopDir)
+	t.Setenv(function.EnvHomeDir, homeDir)
+	t.Setenv(function.EnvDataDir, dataDir)
+	for _, test := range []struct {
+		configured string
+		want       string
+	}{
+		{"${DP_DATA_DIR}", dataDir},
+		{"${DP_HOME_DIR}/test", homeDir + "/test"},
+		{"custom/path", "custom/path"},
+	} {
+		env, err := function.BuildRunEnv(filepath.Join(desktopDir, "apps", "dpanel"), []string{
+			"DP_SYSTEM_STORAGE_LOCAL_PATH=" + test.configured,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(env, "DP_SYSTEM_STORAGE_LOCAL_PATH="+test.want) {
+			t.Fatalf("storage path %q was not expanded to %q", test.configured, test.want)
+		}
 	}
 }
 
