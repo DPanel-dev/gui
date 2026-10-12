@@ -49,18 +49,23 @@ func main() {
 	_ = os.Setenv(function.EnvWorkDir, workDir)
 
 	userHomeDir, _ := os.UserHomeDir()
-	homeDir := filepath.Join(userHomeDir, ".dpanel")
-	settingPath := filepath.Join(homeDir, setting.DefaultFileName)
+	storageRoot := filepath.Join(userHomeDir, ".dpanel")
+	settingPath := filepath.Join(storageRoot, setting.DefaultFileName)
 
-	// 数据存储目录，优先判断当前目录是否存在 setting.json , 优先使用
+	// A setting.json beside the executable belongs to the portable package.
 	if _, err := os.Stat(filepath.Join(workDir, setting.DefaultFileName)); err == nil {
-		homeDir = filepath.Join(workDir, "data")
+		storageRoot = filepath.Join(workDir, "data")
 		settingPath = filepath.Join(workDir, setting.DefaultFileName)
 	}
-	_ = os.Setenv(function.EnvHomeDir, homeDir)
+	if _, ok := os.LookupEnv(function.EnvDataDir); !ok {
+		_ = os.Setenv(function.EnvDataDir, storageRoot)
+	}
+	_ = os.Setenv(function.EnvHomeDir, storageRoot)
 
-	slog.Debug("main", "data", homeDir, "work", workDir, "setting", settingPath)
-	_ = os.Mkdir(homeDir, os.ModePerm)
+	slog.Debug("main", "data", storageRoot, "work", workDir, "setting", settingPath)
+	if err := os.MkdirAll(storageRoot, 0755); err != nil {
+		panic(err)
+	}
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
