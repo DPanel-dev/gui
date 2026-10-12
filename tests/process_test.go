@@ -78,9 +78,19 @@ func TestProcessStartFailure(t *testing.T) {
 		t.Fatal("missing command unexpectedly started")
 	}
 	service.Stop("missing")
-	if status := service.GetProcessStatus("missing"); status.Status != process.StatusError {
-		t.Fatalf("status after start failure = %q", status.Status)
+	if status := service.GetProcessStatus("missing"); status.Status != process.StatusError || status.Log == "" {
+		t.Fatalf("start failure status = %q, log = %q", status.Status, status.Log)
 	}
+}
+
+func TestProcessOperationErrorAppearsInConsoleSnapshot(t *testing.T) {
+	service := testService(t)
+	service.ReportOperationError("example", "read app configuration", "app configuration not found")
+	status := service.GetProcessStatus("example")
+	if status.Status != process.StatusStopped || !strings.Contains(status.Log, "Settings read app configuration failed: app configuration not found") {
+		t.Fatalf("operation error status = %q, log = %q", status.Status, status.Log)
+	}
+	service.Stop("example")
 }
 
 func TestProcessEnvironmentAppOverridesParent(t *testing.T) {
@@ -132,15 +142,13 @@ func TestProcessCommandUsesChildPath(t *testing.T) {
 func TestBuildRunEnvStoragePath(t *testing.T) {
 	desktopDir := t.TempDir()
 	homeDir := t.TempDir()
-	dataDir := t.TempDir()
 	t.Setenv(function.EnvWorkDir, desktopDir)
 	t.Setenv(function.EnvHomeDir, homeDir)
-	t.Setenv(function.EnvDataDir, dataDir)
 	for _, test := range []struct {
 		configured string
 		want       string
 	}{
-		{"${DP_DATA_DIR}", dataDir},
+		{"${DP_HOME_DIR}/dpanel", homeDir + "/dpanel"},
 		{"${DP_HOME_DIR}/test", homeDir + "/test"},
 		{"custom/path", "custom/path"},
 	} {

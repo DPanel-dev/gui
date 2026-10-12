@@ -66,18 +66,20 @@ func (self *SettingService) ServiceName() string {
 
 func (self *SettingService) GetAll() AllSetting {
 	_ = self.kvStoreService.Load()
+	config := self.defaultSetting
 	if data := self.kvStoreService.Get(""); data != nil {
 		if dataStr, err := json.Marshal(data); err == nil {
-			config := AllSetting{System: self.defaultSetting.System}
-			err = json.Unmarshal(dataStr, &config)
-			if err != nil {
-				return self.defaultSetting
-			} else {
-				return config
+			loaded := AllSetting{System: self.defaultSetting.System}
+			if err = json.Unmarshal(dataStr, &loaded); err == nil {
+				config = loaded
 			}
 		}
 	}
-	return self.defaultSetting
+	config.Preset = map[string]string{
+		function.EnvWorkDir: os.Getenv(function.EnvWorkDir),
+		function.EnvHomeDir: os.Getenv(function.EnvHomeDir),
+	}
+	return config
 }
 
 func (self *SettingService) GetApp(name string) *App {

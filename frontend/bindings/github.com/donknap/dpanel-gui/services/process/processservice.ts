@@ -21,6 +21,13 @@ export function GetProcessStatus(name: string): $CancellablePromise<$models.Proc
     return $Call.ByID(1508088688, name);
 }
 
+/**
+ * ReportOperationError keeps setting-page failures in the same log shown by the console.
+ */
+export function ReportOperationError(name: string, phase: string, reason: string): $CancellablePromise<void> {
+    return $Call.ByID(1238422268, name, phase, reason);
+}
+
 export function Run(name: string, option: $models.RunOption): $CancellablePromise<boolean> {
     return $Call.ByID(815717712, name, option);
 }

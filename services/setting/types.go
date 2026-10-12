@@ -1,6 +1,10 @@
 package setting
 
-import "github.com/donknap/dpanel-gui/services/process"
+import (
+	"encoding/json"
+
+	"github.com/donknap/dpanel-gui/services/process"
+)
 
 type Config struct {
 	Path           string
@@ -10,6 +14,7 @@ type Config struct {
 type System struct {
 	CloseWindowHide bool
 	Theme           string
+	Language        string
 }
 
 type App struct {
@@ -22,11 +27,29 @@ type App struct {
 type AllSetting struct {
 	System System
 	Apps   []App
+	// Preset contains the built-in directory variables for display only.
+	Preset map[string]string
+}
+
+type LocalizedText map[string]string
+
+func (text *LocalizedText) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		var legacy string
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return err
+		}
+		*text = LocalizedText{"zh-CN": legacy}
+		return nil
+	}
+	return json.Unmarshal(data, (*map[string]string)(text))
 }
 
 type EnvironmentItem struct {
-	Description  string
+	Description  LocalizedText
+	Help         LocalizedText `json:",omitempty"`
 	DefaultValue string `json:",omitempty"`
+	Disabled     bool   `json:",omitempty"`
 }
 
 type Setting struct {

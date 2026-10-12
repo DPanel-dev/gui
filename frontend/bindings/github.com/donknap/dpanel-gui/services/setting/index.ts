@@ -11,6 +11,7 @@ export type {
     App,
     EnvironmentItem,
     FormAppEnvironment,
+    LocalizedText,
     Setting,
     System
 } from "./models.js";

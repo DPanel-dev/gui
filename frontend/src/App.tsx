@@ -2,9 +2,10 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import Menu from './components/layout/menu'
 import ConsolePage from './components/page/console'
 import SettingPage from './components/page/setting'
+import { LanguageProvider } from './locales'
 
 function App() {
-  return <main className='flex flex-col h-full'>
+  return <LanguageProvider><main className='flex flex-col h-full'>
     <div className=' main flex-1 flex overflow-hidden bg-base-200'>
       <HashRouter>
         <Menu />
@@ -15,7 +16,7 @@ function App() {
         </Routes>
       </HashRouter>
     </div>
-  </main>
+  </main></LanguageProvider>
 }
 
 export default App

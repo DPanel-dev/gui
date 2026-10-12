@@ -48,17 +48,28 @@ func main() {
 	workDir := filepath.Dir(exePath)
 	_ = os.Setenv(function.EnvWorkDir, workDir)
 
-	userHomeDir, _ := os.UserHomeDir()
-	storageRoot := filepath.Join(userHomeDir, ".dpanel")
-	settingPath := filepath.Join(storageRoot, setting.DefaultFileName)
-
-	// A setting.json beside the executable belongs to the portable package.
-	if _, err := os.Stat(filepath.Join(workDir, setting.DefaultFileName)); err == nil {
-		storageRoot = filepath.Join(workDir, "data")
-		settingPath = filepath.Join(workDir, setting.DefaultFileName)
+	storageRoot := os.Getenv(function.EnvHomeDir)
+	settingPath := ""
+	if storageRoot == "" {
+		userHomeDir, err := os.UserHomeDir()
+		if err != nil {
+			panic(err)
+		}
+		storageRoot = filepath.Join(userHomeDir, ".dpanel")
+		// A setting.json beside the executable belongs to the portable package.
+		if _, err := os.Stat(filepath.Join(workDir, setting.DefaultFileName)); err == nil {
+			storageRoot = filepath.Join(workDir, "data")
+			settingPath = filepath.Join(workDir, setting.DefaultFileName)
+		}
+	} else {
+		storageRoot, err = filepath.Abs(storageRoot)
+		if err != nil {
+			panic(err)
+		}
 	}
-	if _, ok := os.LookupEnv(function.EnvDataDir); !ok {
-		_ = os.Setenv(function.EnvDataDir, storageRoot)
+	storageRoot = filepath.Clean(storageRoot)
+	if settingPath == "" {
+		settingPath = filepath.Join(storageRoot, setting.DefaultFileName)
 	}
 	_ = os.Setenv(function.EnvHomeDir, storageRoot)
 
@@ -200,14 +211,29 @@ func main() {
 		showMainWindow()
 	})
 	trayMenu.AddSeparator()
-	trayMenu.Add("Documentation").OnClick(func(c *application.Context) {
+	documentationMenu := trayMenu.Add("Documentation")
+	documentationMenu.OnClick(func(c *application.Context) {
 		_ = app.Browser.OpenURL("https://dpanel.cc")
 	})
-	trayMenu.Add("Repository").OnClick(func(c *application.Context) {
+	repositoryMenu := trayMenu.Add("Repository")
+	repositoryMenu.OnClick(func(c *application.Context) {
 		_ = app.Browser.OpenURL("https://github.com/donknap/dpanel")
 	})
 	trayMenu.AddSeparator()
-	trayMenu.AddRole(application.Quit)
+	quitMenu := trayMenu.AddRole(application.Quit)
+	app.Event.On("dp-system-language", func(event *application.CustomEvent) {
+		if language, ok := event.Data.(string); ok && language == "zh-CN" {
+			viewMenu.SetLabel("打开主界面")
+			documentationMenu.SetLabel("使用文档")
+			repositoryMenu.SetLabel("代码仓库")
+			quitMenu.SetLabel("退出")
+		} else {
+			viewMenu.SetLabel("Go to the Dashboard")
+			documentationMenu.SetLabel("Documentation")
+			repositoryMenu.SetLabel("Repository")
+			quitMenu.SetLabel("Quit")
+		}
+	})
 
 	systray := app.SystemTray.New()
 	systray.SetIcon(icon)

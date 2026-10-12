@@ -208,6 +208,22 @@ func (self *ProcessService) EventEmit(eventName string, message *ProcessEventMes
 	}
 }
 
+// ReportOperationError keeps setting-page failures in the same log shown by the console.
+func (self *ProcessService) ReportOperationError(name, phase, reason string) {
+	line := fmt.Sprintf("Settings %s failed: %s\n", phase, strings.ReplaceAll(strings.ReplaceAll(reason, "\r", " "), "\n", " "))
+	self.mu.Lock()
+	process := self.processList[name]
+	if process == nil {
+		process = &Process{Name: name, max: 500, done: make(chan struct{}), status: StatusStopped}
+		close(process.done)
+		self.processList[name] = process
+	}
+	process.SaveLog(line)
+	status := process.snapshot().Status
+	self.mu.Unlock()
+	self.EventEmit(self.GetEventName(name), &ProcessEventMessage{Status: status, Log: line})
+}
+
 func (self *ProcessService) GetEventName(processName string) string {
 	return fmt.Sprintf(EventMessage, processName)
 }

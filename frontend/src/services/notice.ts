@@ -12,9 +12,9 @@ export async function systemNotice(...message: string[]) {
   })
 }
 
-export async function systemError(...message: string[]) {
+export async function systemError(title: string, ...message: string[]) {
   runtime.Dialogs.Error({
-    Title: "系统信息",
+    Title: title,
     Message: message.join(" ")
   })
 }

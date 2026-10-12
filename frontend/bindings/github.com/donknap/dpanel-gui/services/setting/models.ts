@@ -8,6 +8,11 @@ import * as process$0 from "../process/models.js";
 export interface AllSetting {
     "System": System;
     "Apps": App[] | null;
+
+    /**
+     * Preset contains the built-in directory variables for display only.
+     */
+    "Preset": { [_ in string]?: string } | null;
 }
 
 export interface App {
@@ -18,11 +23,15 @@ export interface App {
 }
 
 export interface EnvironmentItem {
-    "Description": string;
+    "Description": LocalizedText;
+    "Help"?: LocalizedText;
     "DefaultValue"?: string;
+    "Disabled"?: boolean;
 }
 
 export type FormAppEnvironment = {"name": string, "environment": string[] | null}[] | null;
+
+export type LocalizedText = { [_ in string]?: string } | null;
 
 export interface Setting {
     "Environment": { [_ in string]?: EnvironmentItem } | null;
@@ -31,4 +40,5 @@ export interface Setting {
 export interface System {
     "CloseWindowHide": boolean;
     "Theme": string;
+    "Language": string;
 }

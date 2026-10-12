@@ -12,12 +12,14 @@ import { getTextHead } from '../../services/utils'
 import { WailsEvent } from '@wailsio/runtime/types/events'
 import Toast, { ToastRefType } from '../message/toast'
 import { getSettingAfterPendingSaves, saveSystemPatch } from '../../services/setting'
+import { useLanguage } from '../../locales'
 
 export default function Menu() {
   const location = useLocation();
   const [theme, setTheme] = useState<string | null>(null)
   const [app, setApp] = useState<App[]>()
   const toastRef = useRef<ToastRefType>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     let active = true
@@ -32,7 +34,7 @@ export default function Menu() {
     //       "StopCommand": "",
     //       "Environment": [
     //         "APP_SERVER_PORT=8086",
-    //         "DP_SYSTEM_STORAGE_LOCAL_PATH=${DP_DATA_DIR}/dpanel",
+    //         "DP_SYSTEM_STORAGE_LOCAL_PATH=${DP_HOME_DIR}/dpanel",
     //         "DP_HOME_URL=http://127.0.0.1"
     //       ],
     //       "LogMaxLine": 1000
@@ -126,7 +128,7 @@ export default function Menu() {
             try {
               await saveSystemPatch({ Theme: nextTheme })
             } catch (error) {
-              toastRef.current?.error(`保存皮肤失败：${String(error)}`)
+              toastRef.current?.error(t('menu.themeSaveError', { error: String(error) }))
               try {
                 const current = await getSettingAfterPendingSaves()
                 void runtime.Events.Emit(EventSystemTheme, current.System.Theme || lightThemeName)

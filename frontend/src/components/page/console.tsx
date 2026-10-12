@@ -12,6 +12,7 @@ import { systemError } from '../../services/notice'
 import { useParams } from 'react-router'
 import { ProcessEventMessage, ProcessService, RunOption } from '../../../bindings/github.com/donknap/dpanel-gui/services/process'
 import { App, SettingService } from '../../../bindings/github.com/donknap/dpanel-gui/services/setting'
+import { useLanguage } from '../../locales'
 
 const TtyDefaultOption: ITerminalOptions & ITerminalInitOnlyOptions = {
   convertEol: true,
@@ -37,6 +38,7 @@ export default function ConsolePage() {
   const { id } = useParams();
   const [appConfig, setAppConfig] = useState<App>()
   const eventName = getEventName(id ?? "")
+  const { t } = useLanguage()
 
   useEffect(() => {
     const container = containerRef.current
@@ -78,17 +80,20 @@ export default function ConsolePage() {
     SettingService.GetApp(id).then(res => {
       if (!active) return
       if (!res) {
-        systemError("未找到当前应用的配置，请完善 setting.json 后重新运行")
+        systemError(t('notice.system'), t('console.configMissing'))
         return
       }
       setAppConfig(res)
-      return ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
-        if (!active) return
-        if (message?.Status) setStatus(message.Status.trim())
-        if (message?.Log) terminal.write(message.Log)
-      })
     }).catch(error => {
-      if (active) systemError(String(error))
+      if (active) systemError(t('notice.system'), String(error))
+    })
+
+    ProcessService.GetProcessStatus(id).then((message: ProcessEventMessage) => {
+      if (!active) return
+      if (message?.Status) setStatus(message.Status.trim())
+      if (message?.Log) terminal.write(message.Log)
+    }).catch(error => {
+      if (active) systemError(t('notice.system'), String(error))
     })
 
     return () => {
@@ -99,17 +104,17 @@ export default function ConsolePage() {
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [id])
+  }, [id, t])
 
   async function runProcess(name: string, runOption: RunOption) {
     if (!name || !runOption) {
-      systemError("启动参数错误，请完善 setting.json 配置文件")
+      systemError(t('notice.system'), t('console.invalidOptions'))
       return
     }
     terminalRef.current?.clear()
     const status = await runCommand(name, runOption)
     if (!status) {
-      systemError("启动失败, 请查看控制台输出")
+      systemError(t('notice.system'), t('console.startFailed'))
       setStatus("error")
     }
   }
@@ -119,7 +124,7 @@ export default function ConsolePage() {
     <div className='bg-base-300 rounded-box items-center no-animation p-5 m-5 flex'>
       <div className='prose w-80 mr-auto'>
         <h3 className='pl-5'>
-          {appConfig?.Name} 控制台
+          {appConfig?.Name} {t('console.title')}
           <div className="badge badge-sm badge-neutral ml-2">{status}</div>
         </h3>
       </div>
@@ -130,7 +135,7 @@ export default function ConsolePage() {
           }}
         >
           <IconHome className='w-4' />
-          主界面
+          {t('console.home')}
         </button>
       </div>
       <div className='gap-4 flex'>
@@ -139,21 +144,21 @@ export default function ConsolePage() {
             appConfig && runProcess(appConfig.Name, appConfig.RunOption)
           }}>
           <IconStart className='w-4' />
-          启动
+          {t('console.start')}
         </button>
         <button className="btn rounded-xl btn-warning text-warning-content/70 fill-warning-content" onClick={async () => {
           appConfig && await stopCommand(appConfig.Name)
           appConfig && await runProcess(appConfig.Name, appConfig.RunOption)
         }}>
           <IconReload className='w-4' />
-          重启
+          {t('console.restart')}
         </button>
         <button className={`btn rounded-xl btn-error text-error-content/70 fill-error-content ${!status?.includes("running") && " cursor-not-allowed"}`}
           onClick={async () => {
             appConfig && stopCommand(appConfig.Name)
           }}>
           <IconPause className='w-4' />
-          停止
+          {t('console.stop')}
         </button>
       </div>
     </div>
