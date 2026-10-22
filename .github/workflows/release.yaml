@@ -10,6 +10,10 @@ jobs:
   # Job 1: 交叉编译 Desktop 程序（Ubuntu）
   # ==============================
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -47,19 +51,20 @@ jobs:
       - name: Build Desktop App
         shell: pwsh
         run: |
-          wails3 task windows:build PRODUCTION=true
+          wails3 task windows:build PRODUCTION=true ARCH=${{ matrix.arch }} OUTPUT=bin/dpanel-desktop-${{ matrix.arch }}.exe
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: bin/dpanel-desktop.exe
+          files: bin/dpanel-desktop-${{ matrix.arch }}.exe
+          fail_on_unmatched_files: true
 
       - name: Upload to donknap/dpanel Release
         env:
           GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} bin/dpanel-desktop.exe --repo donknap/dpanel --clobber
+          gh release upload ${{ github.ref_name }} "bin/dpanel-desktop-${{ matrix.arch }}.exe" --repo donknap/dpanel --clobber
 
   # ==============================
   # Job 2: NSIS 安装包（Windows, ce/pe 并行）
@@ -67,8 +72,10 @@ jobs:
   package-installer:
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         edition: ['ce', 'pe']
+        arch: [amd64, arm64]
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -123,7 +130,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Path "bin" -Force
-          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop.exe" -D bin --repo ${{ github.repository }}
+          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
 
       - name: Download Resources
         env:
@@ -132,9 +139,8 @@ jobs:
         run: |
           $headers = @{}
           $files = @(
-            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker.exe"; out = "build\windows\resource\docker.exe" },
-            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" },
-            @{ url = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel-${{ matrix.edition }}-windows-amd64.exe"; out = "build\windows\resource\dpanel.exe" }
+            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/${{ matrix.arch }}-windows-docker.exe"; out = "build\windows\resource\docker.exe" },
+            @{ url = "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/${{ matrix.arch }}-windows-docker-compose.exe"; out = "build\windows\resource\docker-compose.exe" }
           )
 
           New-Item -ItemType Directory -Path "build\windows\resource" -Force
@@ -154,30 +160,42 @@ jobs:
             }
           }
 
+          $dpanelUrl = "https://github.com/donknap/dpanel/releases/download/${env:GITHUB_REF_NAME}/dpanel-${{ matrix.edition }}-windows-${{ matrix.arch }}.exe"
+          for ($attempt = 1; $attempt -le 12; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri $dpanelUrl -OutFile "build\windows\resource\dpanel.exe" -ErrorAction Stop
+              break
+            } catch {
+              if ($attempt -eq 12) {
+                throw
+              }
+              Write-Host "DPanel binary is unavailable, retrying in 30 seconds: $($_.Exception.Message)"
+              Start-Sleep -Seconds 30
+            }
+          }
+
       - name: Build Installer
         shell: pwsh
         run: |
-          wails3 task windows:create:nsis:installer
+          wails3 task windows:create:nsis:installer ARCH=${{ matrix.arch }}
 
       - name: Rename Installer
         shell: pwsh
         run: |
-          $installer = Get-ChildItem "bin\*installer.exe" | Select-Object -First 1
-          if ($installer) {
-            Rename-Item $installer.FullName "dpanel-desktop-${{ matrix.edition }}-amd64-installer.exe"
-          }
+          Rename-Item "bin\dpanel-desktop-${{ matrix.arch }}-installer.exe" "dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-installer.exe"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: bin/dpanel-desktop-${{ matrix.edition }}-amd64-installer.exe
+          files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-installer.exe
+          fail_on_unmatched_files: true
 
       - name: Upload to donknap/dpanel Release
         env:
           GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} "bin\dpanel-desktop-${{ matrix.edition }}-amd64-installer.exe" --repo donknap/dpanel --clobber
+          gh release upload ${{ github.ref_name }} "bin\dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-installer.exe" --repo donknap/dpanel --clobber
 
   # ==============================
   # Job 3: 便携包（Ubuntu, ce/pe 并行）
@@ -185,8 +203,10 @@ jobs:
   package-portable:
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         edition: ['ce', 'pe']
+        arch: [amd64, arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -197,14 +217,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p bin
-          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop.exe" -D bin --repo ${{ github.repository }}
+          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
 
       - name: Download Resources
         run: |
           mkdir -p build/windows/resource
-          curl -sL -o build/windows/resource/docker.exe "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker.exe"
-          curl -sL -o build/windows/resource/docker-compose.exe "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/amd64-windows-docker-compose.exe"
-          curl -sL -o build/windows/resource/dpanel.exe "https://github.com/donknap/dpanel/releases/download/${{ github.ref_name }}/dpanel-${{ matrix.edition }}-windows-amd64.exe"
+          curl -fsSL -o build/windows/resource/docker.exe "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/${{ matrix.arch }}-windows-docker.exe"
+          curl -fsSL -o build/windows/resource/docker-compose.exe "https://github.com/DPanel-dev/actions/releases/download/build-toolchain/${{ matrix.arch }}-windows-docker-compose.exe"
+          for attempt in {1..12}; do
+            if curl -fsSL -o build/windows/resource/dpanel.exe "https://github.com/donknap/dpanel/releases/download/${{ github.ref_name }}/dpanel-${{ matrix.edition }}-windows-${{ matrix.arch }}.exe"; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "DPanel Windows release binary is unavailable" >&2
+              exit 1
+            fi
+            sleep 30
+          done
 
       - name: Build Portable
         run: |
@@ -217,19 +246,20 @@ jobs:
           cp build/windows/resource/docker.exe dpanel-desktop/apps/dpanel/
           cp build/windows/resource/docker-compose.exe dpanel-desktop/apps/dpanel/
 
-          7z a bin/dpanel-desktop-${{ matrix.edition }}-amd64-portable.zip dpanel-desktop
+          7z a bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-portable.zip dpanel-desktop
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: bin/dpanel-desktop-${{ matrix.edition }}-amd64-portable.zip
+          files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-portable.zip
+          fail_on_unmatched_files: true
 
       - name: Upload to donknap/dpanel Release
         env:
           GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} bin/dpanel-desktop-${{ matrix.edition }}-amd64-portable.zip --repo donknap/dpanel --clobber
+          gh release upload ${{ github.ref_name }} bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-portable.zip --repo donknap/dpanel --clobber
 
   # ==============================
   # Job 4: macOS CE/PE bundles

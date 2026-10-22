@@ -17,17 +17,23 @@ tasks:
       - task: common:generate:icons
     cmds:
       - task: generate:syso
-      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+        vars:
+          ARCH:
+            ref: .ARCH
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
       - cmd: powershell Remove-item *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
+      ARCH: '{{.ARCH | default ARCH}}'
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{else}}-buildvcs=false -gcflags=all="-l"{{end}}'
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
+      OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:
       GOOS: windows
       CGO_ENABLED: 0
-      GOARCH: '{{.ARCH | default ARCH}}'
+      GOARCH: '{{.ARCH}}'
       PRODUCTION: '{{.PRODUCTION | default "false"}}'
 
   package:
@@ -57,6 +63,8 @@ tasks:
       - task: build
         vars:
           PRODUCTION: "true"
+          ARCH:
+            ref: .ARCH
     cmds:
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
       - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\{{.BIN_DIR}}\{{.APP_NAME}}.exe" project.nsi

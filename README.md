@@ -22,6 +22,31 @@ Congratulations on generating your Wails3 application! This README will guide yo
 
    This will create a production-ready executable in the `build` directory.
 
+## Windows Builds
+
+With Go, Node.js, and the Wails CLI version specified in the release workflow installed, build either Windows architecture:
+
+```sh
+wails3 task windows:build PRODUCTION=true ARCH=amd64 OUTPUT=bin/dpanel-desktop-amd64.exe
+wails3 task windows:build PRODUCTION=true ARCH=arm64 OUTPUT=bin/dpanel-desktop-arm64.exe
+```
+
+These commands directly produce `bin/dpanel-desktop-amd64.exe` and `bin/dpanel-desktop-arm64.exe`, without a rename step. When `OUTPUT` is omitted, the build writes `bin/dpanel-desktop.exe`. To create an NSIS installer on Windows, install NSIS, place the required binaries in `build/windows/resource`, then run:
+
+```sh
+wails3 task windows:create:nsis:installer ARCH=arm64
+```
+
+The resource directory must contain `docker.exe`, `docker-compose.exe`, and `dpanel.exe`, all matching the target Windows architecture. The DPanel binary must also match the target edition and release version. The installer task builds the GUI for the selected architecture and writes `bin/dpanel-desktop-arm64-installer.exe`. Use `ARCH=amd64` for an amd64 installer.
+
+The release workflow publishes both architectures to the GUI and `donknap/dpanel` GitHub Releases:
+
+- Desktop binaries: `dpanel-desktop-amd64.exe` and `dpanel-desktop-arm64.exe`. Packaging downloads the matching asset as `dpanel-desktop.exe` so the executable name inside each package remains unchanged.
+- CE/PE installers: `dpanel-desktop-{ce|pe}-{amd64|arm64}-installer.exe`.
+- CE/PE portable packages: `dpanel-desktop-{ce|pe}-{amd64|arm64}-portable.zip`.
+
+Both installers and portable packages bundle Docker and Compose tools matching the target architecture from the `DPanel-dev/actions` `build-toolchain` Release. A failed tool download stops packaging; there is no fallback to another architecture. ARM64 packages contain native ARM64 GUI, DPanel, Docker, and Compose binaries; actual operation must still be verified on a Windows ARM64 device. ARM64 Windows packages are not added to COS or Scoop.
+
 ## Exploring Wails3 Features
 
 Now that you have your project set up, it's time to explore the features that Wails3 offers:
