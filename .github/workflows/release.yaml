@@ -364,6 +364,7 @@ jobs:
             exit 0
           fi
 
+          server_version="${RELEASE_TAG#v}"
           current_version=""
           for edition in ce pe; do
             cask=dpanel
@@ -383,17 +384,21 @@ jobs:
             cask_revision="${BASH_REMATCH[2]}"
             if [[ -z "$current_version" ]]; then
               current_version="$cask_version"
-              if [[ "$RELEASE_TAG" != "v$cask_server_version" ]]; then
-                echo "Release tag $RELEASE_TAG does not match the cask server version $cask_server_version" >&2
+              if [[ "$server_version" != "$cask_server_version" && \
+                    "$(printf '%s\n' "$cask_server_version" "$server_version" | sort -V | tail -n 1)" == "$cask_server_version" ]]; then
+                echo "Refusing to downgrade Homebrew from $cask_server_version to $server_version" >&2
                 exit 1
               fi
-              revision="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
-              current_revision_number=$((10#$cask_revision))
-              if (( revision <= current_revision_number )); then
-                previous_revision_epoch="$(TZ=Asia/Shanghai date -d "${cask_revision:0:4}-${cask_revision:4:2}-${cask_revision:6:2} ${cask_revision:8:2}:${cask_revision:10:2}:00" +%s)"
-                revision="$(TZ=Asia/Shanghai date -d "@$((previous_revision_epoch + 60))" +%Y%m%d%H%M)"
+              revision="$cask_revision"
+              if [[ "$server_version" == "$cask_server_version" ]]; then
+                revision="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
+                current_revision_number=$((10#$cask_revision))
+                if (( revision <= current_revision_number )); then
+                  previous_revision_epoch="$(TZ=Asia/Shanghai date -d "${cask_revision:0:4}-${cask_revision:4:2}-${cask_revision:6:2} ${cask_revision:8:2}:${cask_revision:10:2}:00" +%s)"
+                  revision="$(TZ=Asia/Shanghai date -d "@$((previous_revision_epoch + 60))" +%Y%m%d%H%M)"
+                fi
               fi
-              version="$cask_server_version,$revision"
+              version="$server_version,$revision"
             elif [[ "$cask_version" != "$current_version" ]]; then
               echo "CE and PE cask versions differ: $current_version and $cask_version" >&2
               exit 1
@@ -436,105 +441,7 @@ jobs:
           git push origin "HEAD:refs/heads/$(git branch --show-current)"
 
   # ==============================
-  # Job 6: 更新 Scoop manifests（Ubuntu）
-  # ==============================
-  update-scoop-manifests:
-    needs: package-portable
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out DPanel Scoop repository
-        uses: actions/checkout@v4
-        with:
-          repository: DPanel-dev/scoop
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
-
-      - name: Update manifest versions and checksums
-        id: update
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          release="$(gh api "repos/donknap/dpanel/releases/tags/${RELEASE_TAG}")"
-          if [[ "$(jq -r '.prerelease' <<< "$release")" != false ]]; then
-            echo "Skipping prerelease $RELEASE_TAG"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Unexpected release tag: $RELEASE_TAG" >&2
-            exit 1
-          fi
-
-          version="${RELEASE_TAG#v}"
-          current_version=""
-          for edition in ce pe; do
-            manifest="bucket/dpanel.json"
-            if [[ "$edition" == pe ]]; then manifest="bucket/dpanel-pe.json"; fi
-            current="$(jq -r '.version' "$manifest")"
-            if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Unexpected version in $manifest: $current" >&2
-              exit 1
-            fi
-            if [[ -n "$current_version" && "$current" != "$current_version" ]]; then
-              echo "CE and PE Scoop versions differ" >&2
-              exit 1
-            fi
-            current_version="$current"
-            if [[ "$current" != "$version" && \
-                  "$(printf '%s\n' "$current" "$version" | sort -V | tail -n 1)" == "$current" ]]; then
-              echo "Refusing to downgrade $manifest from $current to $version" >&2
-              exit 1
-            fi
-
-            asset="dpanel-desktop-${edition}-amd64-portable.zip"
-            base_url="https://github.com/donknap/dpanel/releases/download"
-            old_url="${base_url}/v${current}/${asset}"
-            new_url="${base_url}/${RELEASE_TAG}/${asset}"
-            if [[ "$(jq -r '.architecture."64bit".url' "$manifest")" != "$old_url" ]]; then
-              echo "Unexpected download URL in $manifest" >&2
-              exit 1
-            fi
-            old_hash="$(jq -r '.architecture."64bit".hash' "$manifest")"
-            if [[ ! "$old_hash" =~ ^[0-9a-f]{64}$ ]]; then
-              echo "Unexpected hash in $manifest" >&2
-              exit 1
-            fi
-
-            gh release download "$RELEASE_TAG" \
-              --repo donknap/dpanel --pattern "$asset" --dir "$RUNNER_TEMP"
-            checksum="$(sha256sum "$RUNNER_TEMP/$asset" | cut -d ' ' -f 1)"
-            sed -i \
-              -e "s|\"version\": \"$current\"|\"version\": \"$version\"|" \
-              -e "s|\"url\": \"$old_url\"|\"url\": \"$new_url\"|" \
-              -e "s|\"hash\": \"$old_hash\"|\"hash\": \"$checksum\"|" \
-              "$manifest"
-            jq -e --arg version "$version" --arg url "$new_url" --arg hash "$checksum" \
-              '.version == $version and .architecture."64bit".url == $url and .architecture."64bit".hash == $hash' \
-              "$manifest" > /dev/null
-          done
-
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if git diff --quiet -- bucket/dpanel.json bucket/dpanel-pe.json; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Push Scoop manifest updates
-        if: steps.update.outputs.changed == 'true'
-        env:
-          VERSION: ${{ steps.update.outputs.version }}
-        run: |
-          set -euo pipefail
-          git config user.name "DPanel-Dev"
-          git config user.email "donknap@gmail.com"
-          git add -- bucket/dpanel.json bucket/dpanel-pe.json
-          git commit -m "Update DPanel Scoop manifests to ${VERSION}"
-          git push origin "HEAD:refs/heads/$(git branch --show-current)"
-
-  # ==============================
-  # Job 7: 上传 Windows 绿色版和 macOS arm64 产物到 COS（Ubuntu）
+  # Job 6: 上传 Windows 绿色版和 macOS arm64 产物到 COS（Ubuntu）
   # ==============================
   upload-cos:
     needs: [package-portable, package-macos]
