@@ -1,5 +1,7 @@
 name: release
 permissions: write-all
+env:
+  GUI_RELEASE_NAME: ${{ github.ref_name }}-${{ github.run_number }}
 on:
   push:
     tags:
@@ -57,6 +59,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ env.GUI_RELEASE_NAME }}
           files: bin/dpanel-desktop-${{ matrix.arch }}.exe
           fail_on_unmatched_files: true
 
@@ -130,7 +133,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Path "bin" -Force
-          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
+          gh release download "${{ github.ref_name }}" --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
 
       - name: Download Resources
         env:
@@ -188,6 +191,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ env.GUI_RELEASE_NAME }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-installer.exe
           fail_on_unmatched_files: true
 
@@ -217,7 +221,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p bin
-          gh release download ${{ github.ref_name }} --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
+          gh release download "${{ github.ref_name }}" --pattern "dpanel-desktop-${{ matrix.arch }}.exe" --output bin/dpanel-desktop.exe --repo ${{ github.repository }}
 
       - name: Download Resources
         run: |
@@ -252,6 +256,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ env.GUI_RELEASE_NAME }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-portable.zip
           fail_on_unmatched_files: true
 
@@ -323,6 +328,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          name: ${{ env.GUI_RELEASE_NAME }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-darwin-${{ matrix.arch }}.app.zip
 
       - name: Upload to donknap/dpanel Release
