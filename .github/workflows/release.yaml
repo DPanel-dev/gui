@@ -1,7 +1,5 @@
 name: release
 permissions: write-all
-env:
-  GUI_RELEASE_NAME: ${{ github.ref_name }}-${{ github.run_number }}
 on:
   push:
     tags:
@@ -60,7 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ env.GUI_RELEASE_NAME }}
+          name: ${{ github.ref_name }}
           files: bin/dpanel-desktop-${{ matrix.arch }}.exe
           fail_on_unmatched_files: true
 
@@ -192,7 +190,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ env.GUI_RELEASE_NAME }}
+          name: ${{ github.ref_name }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-installer.exe
           fail_on_unmatched_files: true
 
@@ -257,7 +255,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ env.GUI_RELEASE_NAME }}
+          name: ${{ github.ref_name }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-${{ matrix.arch }}-portable.zip
           fail_on_unmatched_files: true
 
@@ -329,7 +327,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ env.GUI_RELEASE_NAME }}
+          name: ${{ github.ref_name }}
           files: bin/dpanel-desktop-${{ matrix.edition }}-darwin-${{ matrix.arch }}.app.zip
 
       - name: Upload to donknap/dpanel Release
@@ -494,7 +492,7 @@ jobs:
 
   publish-gui-release:
     env:
-      GUI_RELEASE_TAG: ${{ github.ref_name }}-${{ github.run_id }}
+      GUI_RELEASE_TAG: ${{ github.ref_name }}-${{ github.run_number }}
     needs: [package-installer, package-portable, package-macos]
     runs-on: ubuntu-latest
     steps:
@@ -505,7 +503,7 @@ jobs:
           gh release download "${{ github.ref_name }}" \
             --repo "${{ github.repository }}" --dir bin --pattern "dpanel-desktop-*"
 
-      - name: Publish GUI release with run ID
+      - name: Publish GUI release with run number
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.GUI_RELEASE_TAG }}
