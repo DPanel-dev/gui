@@ -5,7 +5,8 @@ env:
 on:
   push:
     tags:
-      - 'v*'  # 触发条件：推送到任意 v* 标签
+      - 'v*'
+      - '!v*-*'  # 自动生成的 GUI 发布标签不再触发构建
 
 jobs:
   # ==============================
@@ -490,3 +491,27 @@ jobs:
           ls -lh bin
           ./coscli cp -e cos.ap-shanghai.myqcloud.com bin/ cos://we7cloud-10016060/dpanel/release/ -r --part-size 10 --routines 20
           echo "Windows portable and macOS arm64 packages uploaded to COS"
+
+  publish-gui-release:
+    env:
+      GUI_RELEASE_TAG: ${{ github.ref_name }}-${{ github.run_id }}
+    needs: [package-installer, package-portable, package-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download original release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" --dir bin --pattern "dpanel-desktop-*"
+
+      - name: Publish GUI release with run ID
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.GUI_RELEASE_TAG }}
+          name: ${{ env.GUI_RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          prerelease: false
+          files: bin/dpanel-desktop-*
+          fail_on_unmatched_files: true
